@@ -42,7 +42,7 @@ c3c build
 On success the tool prints a syntax tree, then a one-line summary:
 
 ```text
-ok: parsed samples/simple.p4 (6 declarations)
+ok: parsed samples/simple.p4 (7 declarations)
 ```
 
 A syntax error is reported as `file:line:column: error: ...` and the process exits with status 1.

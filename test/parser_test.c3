@@ -20,13 +20,13 @@ fn void parses_headers_and_structs() @test
 				ethernet_t ethernet;
 			}
 		`)!!;
-		test::eq(program.decls.len(), 2);
-		test::eq(program.decls[0].kind, HEADER);
+		test::eq((int)program.decls.len(), 2);
+		test::eq(program.decls[0].kind, DeclKind.HEADER);
 		test::eq(program.decls[0].name, "ethernet_t");
-		test::eq(program.decls[0].fields.len(), 3);
+		test::eq((int)program.decls[0].fields.len(), 3);
 		test::eq(program.decls[0].fields[0].name, "dst_addr");
-		test::eq(program.decls[0].fields[0].type.width, 48);
-		test::eq(program.decls[1].kind, STRUCT);
+		test::eq((int)program.decls[0].fields[0].type.width, 48);
+		test::eq(program.decls[1].kind, DeclKind.STRUCT);
 		test::eq(program.decls[1].name, "headers_t");
 	};
 }
@@ -46,12 +46,12 @@ fn void parses_parser_states() @test
 				}
 			}
 		`)!!;
-		test::eq(program.decls.len(), 1);
-		test::eq(program.decls[0].kind, PARSER);
-		test::eq(program.decls[0].states.len(), 1);
+		test::eq((int)program.decls.len(), 1);
+		test::eq(program.decls[0].kind, DeclKind.PARSER);
+		test::eq((int)program.decls[0].states.len(), 1);
 		test::eq(program.decls[0].states[0].name, "start");
-		test::eq(program.decls[0].states[0].transition.kind, SELECT);
-		test::eq(program.decls[0].states[0].transition.cases.len(), 2);
+		test::eq(program.decls[0].states[0].transition.kind, TransitionKind.SELECT);
+		test::eq((int)program.decls[0].states[0].transition.cases.len(), 2);
 		test::eq(program.decls[0].states[0].transition.cases[1].is_default, true);
 	};
 }
@@ -84,17 +84,17 @@ fn void parses_control_actions_tables() @test
 				}
 			}
 		`)!!;
-		test::eq(program.decls.len(), 1);
+		test::eq((int)program.decls.len(), 1);
 		Decl* c = program.decls[0];
-		test::eq(c.kind, CONTROL);
-		test::eq(c.actions.len(), 2);
-		test::eq(c.actions[1].params.len(), 1);
-		test::eq(c.tables.len(), 1);
+		test::eq(c.kind, DeclKind.CONTROL);
+		test::eq((int)c.actions.len(), 2);
+		test::eq((int)c.actions[1].params.len(), 1);
+		test::eq((int)c.tables.len(), 1);
 		test::eq(c.tables[0].name, "dmac");
-		test::eq(c.tables[0].keys.len(), 1);
-		test::eq(c.tables[0].actions.len(), 2);
+		test::eq((int)c.tables[0].keys.len(), 1);
+		test::eq((int)c.tables[0].actions.len(), 2);
 		test::eq(c.tables[0].has_default, true);
-		test::eq(c.apply.len(), 1);
+		test::eq((int)c.apply.len(), 1);
 	};
 }
 
