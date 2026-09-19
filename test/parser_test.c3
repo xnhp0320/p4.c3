@@ -1,15 +1,12 @@
 module p4c3;
 import std::io;
 
-fn Program*? parse_ok(String source)
-{
+fn Program*? parse_ok(String source) {
 	return parse_source(tmem, "test.p4", source);
 }
 
-fn void parses_headers_and_structs() @test
-{
-	@pool()
-	{
+fn void parses_headers_and_structs() @test {
+	@pool() {
 		Program* program = parse_ok(`
 			header ethernet_t {
 				bit<48> dst_addr;
@@ -31,10 +28,8 @@ fn void parses_headers_and_structs() @test
 	};
 }
 
-fn void parses_parser_states() @test
-{
-	@pool()
-	{
+fn void parses_parser_states() @test {
+	@pool() {
 		Program* program = parse_ok(`
 			parser P(packet_in packet, out headers_t hdr) {
 				state start {
@@ -56,10 +51,8 @@ fn void parses_parser_states() @test
 	};
 }
 
-fn void parses_control_actions_tables() @test
-{
-	@pool()
-	{
+fn void parses_control_actions_tables() @test {
+	@pool() {
 		Program* program = parse_ok(`
 			control Ingress(inout headers_t hdr, inout metadata_t meta) {
 				action drop() {
@@ -98,10 +91,8 @@ fn void parses_control_actions_tables() @test
 	};
 }
 
-fn void rejects_garbage() @test
-{
-	@pool()
-	{
+fn void rejects_garbage() @test {
+	@pool() {
 		test::@error(parse_ok("this is not p4;"), PARSE_FAILED);
 	};
 }

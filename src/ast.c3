@@ -1,8 +1,7 @@
 module p4c3;
 import std::collections::list;
 
-enum TypeKind
-{
+enum TypeKind {
 	BIT,
 	INT,
 	VARBIT,
@@ -12,29 +11,25 @@ enum TypeKind
 	NAME,
 }
 
-struct TypeRef
-{
+struct TypeRef {
 	TypeKind kind;
 	String name;
 	uint width;
 	uint stack_size;
 }
 
-struct ParamDecl
-{
+struct ParamDecl {
 	String direction;
 	TypeRef type;
 	String name;
 }
 
-struct FieldDecl
-{
+struct FieldDecl {
 	TypeRef type;
 	String name;
 }
 
-enum ExprKind
-{
+enum ExprKind {
 	IDENT,
 	NUMBER,
 	STR,
@@ -46,15 +41,13 @@ enum ExprKind
 	TUPLE,
 }
 
-struct Expr
-{
+struct Expr {
 	ExprKind kind;
 	Token token;
 	List{Expr*} kids;
 }
 
-enum StmtKind
-{
+enum StmtKind {
 	BLOCK,
 	ASSIGN,
 	EXPR,
@@ -64,8 +57,7 @@ enum StmtKind
 	VAR,
 }
 
-struct Stmt
-{
+struct Stmt {
 	StmtKind kind;
 	TypeRef type;
 	String name;
@@ -75,50 +67,43 @@ struct Stmt
 	List{Stmt*} kids;
 }
 
-enum TransitionKind
-{
+enum TransitionKind {
 	NONE,
 	NAME,
 	SELECT,
 }
 
-struct SelectCase
-{
+struct SelectCase {
 	bool is_default;
 	List{Expr*} keys;
 	String target;
 }
 
-struct Transition
-{
+struct Transition {
 	TransitionKind kind;
 	String target;
 	List{Expr*} select_keys;
 	List{SelectCase} cases;
 }
 
-struct ParserState
-{
+struct ParserState {
 	String name;
 	List{Stmt*} body;
 	Transition transition;
 }
 
-struct KeyElem
-{
+struct KeyElem {
 	Expr* expr;
 	String match_kind;
 }
 
-struct ActionRef
-{
+struct ActionRef {
 	String name;
 	List{Expr*} args;
 	bool has_args;
 }
 
-struct TableDecl
-{
+struct TableDecl {
 	String name;
 	List{KeyElem} keys;
 	List{ActionRef} actions;
@@ -127,15 +112,13 @@ struct TableDecl
 	bool has_default;
 }
 
-struct ActionDecl
-{
+struct ActionDecl {
 	String name;
 	List{ParamDecl} params;
 	List{Stmt*} body;
 }
 
-enum DeclKind
-{
+enum DeclKind {
 	HEADER,
 	STRUCT,
 	TYPEDEF,
@@ -147,8 +130,7 @@ enum DeclKind
 	TABLE,
 }
 
-struct Decl
-{
+struct Decl {
 	DeclKind kind;
 	String name;
 	TypeRef type;
@@ -165,7 +147,6 @@ struct Decl
 	List{Decl*} locals;
 }
 
-struct Program
-{
+struct Program {
 	List{Decl*} decls;
 }

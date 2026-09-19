@@ -53,6 +53,27 @@ A syntax error is reported as `file:line:column: error: ...` and the process exi
 c3c test
 ```
 
+## Code style
+
+C3 here uses **K&R braces**: the opening `{` stays on the same line as `fn`, `if`, `else`, `while`, `for`, `foreach`, `switch`, `struct`, and `enum`. Do not put the brace on its own line.
+
+```c3
+fn int example(int x) {
+	if (x > 0) {
+		return x;
+	} else {
+		return 0;
+	}
+}
+
+struct Point {
+	int x;
+	int y;
+}
+```
+
+Indent with tabs. Names follow C3 rules: types `PascalCase`, functions and locals `snake_case`.
+
 ## Layout
 
 Official C3 project layout (`c3c init`):

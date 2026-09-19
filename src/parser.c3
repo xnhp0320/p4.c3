@@ -3,8 +3,7 @@ import std::io;
 import std::io::file;
 import std::collections::list;
 
-struct Parser
-{
+struct Parser {
 	String filename;
 	List{Token} tokens;
 	sz pos;
@@ -14,8 +13,7 @@ struct Parser
 	Token error_tok;
 }
 
-fn Parser parser_create(Allocator allocator, String filename, List{Token} tokens)
-{
+fn Parser parser_create(Allocator allocator, String filename, List{Token} tokens) {
 	Parser p;
 	p.filename = filename;
 	p.tokens = tokens;
@@ -24,40 +22,33 @@ fn Parser parser_create(Allocator allocator, String filename, List{Token} tokens
 	return p;
 }
 
-fn Token Parser.peek(&self)
-{
+fn Token Parser.peek(&self) {
 	if (self.pos >= self.tokens.len()) return self.tokens[self.tokens.len() - 1];
 	return self.tokens[self.pos];
 }
 
-fn Token Parser.peek_at(&self, sz offset)
-{
+fn Token Parser.peek_at(&self, sz offset) {
 	sz i = self.pos + offset;
 	if (i >= self.tokens.len()) return self.tokens[self.tokens.len() - 1];
 	return self.tokens[i];
 }
 
-fn Token Parser.advance(&self)
-{
+fn Token Parser.advance(&self) {
 	Token t = self.peek();
 	if (t.kind != END) self.pos++;
 	return t;
 }
 
-fn bool Parser.check(&self, TokenKind kind)
-{
+fn bool Parser.check(&self, TokenKind kind) {
 	return self.peek().kind == kind;
 }
 
-fn bool Parser.check_kw(&self, String name)
-{
+fn bool Parser.check_kw(&self, String name) {
 	return self.peek().is_kw(name);
 }
 
-fn void? Parser.fail(&self, String msg)
-{
-	if (!self.had_error)
-	{
+fn void? Parser.fail(&self, String msg) {
+	if (!self.had_error) {
 		self.had_error = true;
 		self.error_msg = msg;
 		self.error_tok = self.peek();
@@ -65,30 +56,25 @@ fn void? Parser.fail(&self, String msg)
 	return PARSE_FAILED~;
 }
 
-fn void Parser.report(&self)
-{
+fn void Parser.report(&self) {
 	Token t = self.error_tok;
 	String got = t.kind == END ? "end of file" : (t.text.len ? t.text : t.kind.label());
 	io::eprintfn("%s:%d:%d: error: %s (got %s)", self.filename, t.line, t.column, self.error_msg, got);
 }
 
-fn void? Parser.expect(&self, TokenKind kind)
-{
-	if (!self.check(kind))
-	{
+fn void? Parser.expect(&self, TokenKind kind) {
+	if (!self.check(kind)) {
 		self.fail(string::tformat("expected %s", kind.label()))!;
 	}
 	self.advance();
 }
 
-fn String? Parser.expect_ident(&self)
-{
+fn String? Parser.expect_ident(&self) {
 	if (!self.check(IDENT)) self.fail("expected identifier")!;
 	return self.advance().text;
 }
 
-fn Expr* Parser.new_expr(&self, ExprKind kind, Token token)
-{
+fn Expr* Parser.new_expr(&self, ExprKind kind, Token token) {
 	Expr* expr = alloc::new(self.allocator, Expr);
 	expr.kind = kind;
 	expr.token = token;
@@ -96,16 +82,14 @@ fn Expr* Parser.new_expr(&self, ExprKind kind, Token token)
 	return expr;
 }
 
-fn Stmt* Parser.new_stmt(&self, StmtKind kind)
-{
+fn Stmt* Parser.new_stmt(&self, StmtKind kind) {
 	Stmt* stmt = alloc::new(self.allocator, Stmt);
 	stmt.kind = kind;
 	stmt.kids.init(self.allocator, 4);
 	return stmt;
 }
 
-fn Decl* Parser.new_decl(&self, DeclKind kind, String name)
-{
+fn Decl* Parser.new_decl(&self, DeclKind kind, String name) {
 	Decl* decl = alloc::new(self.allocator, Decl);
 	decl.kind = kind;
 	decl.name = name;
@@ -120,71 +104,52 @@ fn Decl* Parser.new_decl(&self, DeclKind kind, String name)
 	return decl;
 }
 
-fn void? Parser.skip_balanced(&self, TokenKind open, TokenKind close)
-{
+fn void? Parser.skip_balanced(&self, TokenKind open, TokenKind close) {
 	self.expect(open)!;
 	int depth = 1;
-	while (depth > 0)
-	{
+	while (depth > 0) {
 		Token t = self.peek();
 		if (t.kind == END) self.fail("unclosed delimiter")!;
 		self.advance();
-		if (t.kind == open)
-		{
+		if (t.kind == open) {
 			depth++;
-		}
-		else if (t.kind == close)
-		{
+		} else if (t.kind == close) {
 			depth--;
 		}
 	}
 }
 
-fn void? Parser.skip_type_args(&self)
-{
+fn void? Parser.skip_type_args(&self) {
 	if (!self.check(LT)) return;
 	self.advance();
 	int depth = 1;
-	while (depth > 0)
-	{
+	while (depth > 0) {
 		Token t = self.peek();
 		if (t.kind == END) self.fail("unclosed type argument list")!;
 		self.advance();
-		if (t.kind == LT)
-		{
+		if (t.kind == LT) {
 			depth++;
-		}
-		else if (t.kind == GT)
-		{
+		} else if (t.kind == GT) {
 			depth--;
-		}
-		else if (t.kind == RSHIFT)
-		{
+		} else if (t.kind == RSHIFT) {
 			depth -= 2;
 			if (depth < 0) self.fail("mismatched '>'")!;
 		}
 	}
 }
 
-fn bool Parser.looks_like_call_type_args(&self)
-{
+fn bool Parser.looks_like_call_type_args(&self) {
 	if (!self.check(LT)) return false;
 	sz i = 1;
 	int depth = 1;
-	while (depth > 0 && i < 64)
-	{
+	while (depth > 0 && i < 64) {
 		Token t = self.peek_at(i);
 		if (t.kind == END) return false;
-		if (t.kind == LT)
-		{
+		if (t.kind == LT) {
 			depth++;
-		}
-		else if (t.kind == GT)
-		{
+		} else if (t.kind == GT) {
 			depth--;
-		}
-		else if (t.kind == RSHIFT)
-		{
+		} else if (t.kind == RSHIFT) {
 			depth -= 2;
 		}
 		i++;
@@ -193,53 +158,43 @@ fn bool Parser.looks_like_call_type_args(&self)
 	return self.peek_at(i).kind == LPAREN;
 }
 
-fn void? Parser.skip_annotations(&self)
-{
-	while (self.check(AT))
-	{
+fn void? Parser.skip_annotations(&self) {
+	while (self.check(AT)) {
 		self.advance();
 		if (self.check(IDENT)) self.advance();
 		if (self.check(LPAREN)) self.skip_balanced(LPAREN, RPAREN)!;
 	}
 }
 
-fn bool Parser.at_type_name(&self)
-{
+fn bool Parser.at_type_name(&self) {
 	if (!self.check(IDENT)) return false;
 	String s = self.peek().text;
 	return s == "bit" || s == "int" || s == "varbit" || s == "bool"
 		|| s == "void" || s == "error" || s == "string";
 }
 
-fn bool Parser.try_consume_type(&self)
-{
+fn bool Parser.try_consume_type(&self) {
 	if (!self.check(IDENT)) return false;
 	String s = self.peek().text;
 	self.advance();
-	if (s == "bit" || s == "int" || s == "varbit")
-	{
+	if (s == "bit" || s == "int" || s == "varbit") {
 		if (!self.check(LT)) return false;
 		self.advance();
 		if (!self.check(INTEGER)) return false;
 		self.advance();
 		if (!self.check(GT)) return false;
 		self.advance();
-	}
-	else
-	{
-		if (self.check(LT))
-		{
+	} else {
+		if (self.check(LT)) {
 			sz saved = self.pos;
-			if (catch self.skip_type_args())
-			{
+			if (catch self.skip_type_args()) {
 				self.pos = saved;
 				self.had_error = false;
 				return false;
 			}
 		}
 	}
-	if (self.check(LBRACK))
-	{
+	if (self.check(LBRACK)) {
 		self.advance();
 		if (!self.check(INTEGER) && !self.check(IDENT)) return false;
 		self.advance();
@@ -249,32 +204,24 @@ fn bool Parser.try_consume_type(&self)
 	return true;
 }
 
-fn bool Parser.looks_like_var_decl(&self)
-{
+fn bool Parser.looks_like_var_decl(&self) {
 	sz saved = self.pos;
 	bool ok = self.try_consume_type() && self.check(IDENT);
 	self.pos = saved;
 	return ok;
 }
 
-fn TypeRef? Parser.parse_type(&self)
-{
+fn TypeRef? Parser.parse_type(&self) {
 	if (!self.check(IDENT)) self.fail("expected type")!;
 	Token t = self.advance();
 	TypeRef ty;
 	ty.name = t.text;
-	if (t.text == "bit" || t.text == "int" || t.text == "varbit")
-	{
-		if (t.text == "bit")
-		{
+	if (t.text == "bit" || t.text == "int" || t.text == "varbit") {
+		if (t.text == "bit") {
 			ty.kind = BIT;
-		}
-		else if (t.text == "int")
-		{
+		} else if (t.text == "int") {
 			ty.kind = INT;
-		}
-		else
-		{
+		} else {
 			ty.kind = VARBIT;
 		}
 		self.expect(LT)!;
@@ -282,26 +229,17 @@ fn TypeRef? Parser.parse_type(&self)
 		Token w = self.advance();
 		ty.width = w.text.to_uint() ?? 0;
 		self.expect(GT)!;
-	}
-	else if (t.text == "bool")
-	{
+	} else if (t.text == "bool") {
 		ty.kind = BOOL;
-	}
-	else if (t.text == "void")
-	{
+	} else if (t.text == "void") {
 		ty.kind = VOID;
-	}
-	else if (t.text == "error")
-	{
+	} else if (t.text == "error") {
 		ty.kind = ERROR;
-	}
-	else
-	{
+	} else {
 		ty.kind = NAME;
 		self.skip_type_args()!;
 	}
-	if (self.check(LBRACK))
-	{
+	if (self.check(LBRACK)) {
 		self.advance();
 		if (!self.check(INTEGER)) self.fail("expected stack size")!;
 		Token n = self.advance();
@@ -311,13 +249,10 @@ fn TypeRef? Parser.parse_type(&self)
 	return ty;
 }
 
-fn Expr*? Parser.parse_args(&self, Expr* call)
-{
+fn Expr*? Parser.parse_args(&self, Expr* call) {
 	self.expect(LPAREN)!;
-	if (!self.check(RPAREN))
-	{
-		while (true)
-		{
+	if (!self.check(RPAREN)) {
+		while (true) {
 			call.kids.push(self.parse_expr()!);
 			if (!self.check(COMMA)) break;
 			self.advance();
@@ -327,34 +262,27 @@ fn Expr*? Parser.parse_args(&self, Expr* call)
 	return call;
 }
 
-fn Expr*? Parser.parse_primary(&self)
-{
+fn Expr*? Parser.parse_primary(&self) {
 	Token t = self.peek();
-	if (t.kind == IDENT)
-	{
+	if (t.kind == IDENT) {
 		self.advance();
 		return self.new_expr(IDENT, t);
 	}
-	if (t.kind == INTEGER)
-	{
+	if (t.kind == INTEGER) {
 		self.advance();
 		return self.new_expr(NUMBER, t);
 	}
-	if (t.kind == STR)
-	{
+	if (t.kind == STR) {
 		self.advance();
 		return self.new_expr(STR, t);
 	}
-	if (t.kind == LPAREN)
-	{
+	if (t.kind == LPAREN) {
 		self.advance();
 		Expr* first = self.parse_expr()!;
-		if (self.check(COMMA))
-		{
+		if (self.check(COMMA)) {
 			Expr* tuple = self.new_expr(TUPLE, t);
 			tuple.kids.push(first);
-			while (self.check(COMMA))
-			{
+			while (self.check(COMMA)) {
 				self.advance();
 				if (self.check(RPAREN)) break;
 				tuple.kids.push(self.parse_expr()!);
@@ -369,13 +297,10 @@ fn Expr*? Parser.parse_primary(&self)
 	return PARSE_FAILED~;
 }
 
-fn Expr*? Parser.parse_postfix(&self)
-{
+fn Expr*? Parser.parse_postfix(&self) {
 	Expr* expr = self.parse_primary()!;
-	while (true)
-	{
-		if (self.check(DOT))
-		{
+	while (true) {
+		if (self.check(DOT)) {
 			self.advance();
 			if (!self.check(IDENT)) self.fail("expected member name")!;
 			Token name = self.advance();
@@ -384,8 +309,7 @@ fn Expr*? Parser.parse_postfix(&self)
 			expr = member;
 			continue;
 		}
-		if (self.check(LBRACK))
-		{
+		if (self.check(LBRACK)) {
 			Token tok = self.advance();
 			Expr* index = self.new_expr(INDEX, tok);
 			index.kids.push(expr);
@@ -394,16 +318,14 @@ fn Expr*? Parser.parse_postfix(&self)
 			expr = index;
 			continue;
 		}
-		if (self.looks_like_call_type_args())
-		{
+		if (self.looks_like_call_type_args()) {
 			self.skip_type_args()!;
 			Expr* call = self.new_expr(CALL, expr.token);
 			call.kids.push(expr);
 			expr = self.parse_args(call)!;
 			continue;
 		}
-		if (self.check(LPAREN))
-		{
+		if (self.check(LPAREN)) {
 			Expr* call = self.new_expr(CALL, expr.token);
 			call.kids.push(expr);
 			expr = self.parse_args(call)!;
@@ -414,11 +336,9 @@ fn Expr*? Parser.parse_postfix(&self)
 	return expr;
 }
 
-fn Expr*? Parser.parse_unary(&self)
-{
+fn Expr*? Parser.parse_unary(&self) {
 	Token t = self.peek();
-	if (t.kind == BANG || t.kind == TILDE || t.kind == MINUS || t.kind == PLUS)
-	{
+	if (t.kind == BANG || t.kind == TILDE || t.kind == MINUS || t.kind == PLUS) {
 		self.advance();
 		Expr* expr = self.new_expr(UNARY, t);
 		expr.kids.push(self.parse_unary()!);
@@ -427,16 +347,13 @@ fn Expr*? Parser.parse_unary(&self)
 	return self.parse_postfix();
 }
 
-fn Expr*? Parser.parse_binop(&self, int prec)
-{
+fn Expr*? Parser.parse_binop(&self, int prec) {
 	if (prec == 0) return self.parse_unary();
 	Expr* left = self.parse_binop(prec - 1)!;
-	while (true)
-	{
+	while (true) {
 		Token op = self.peek();
 		int p = -1;
-		switch (op.kind)
-		{
+		switch (op.kind) {
 			case STAR:
 			case SLASH:
 			case PERCENT:
@@ -481,16 +398,13 @@ fn Expr*? Parser.parse_binop(&self, int prec)
 	return left;
 }
 
-fn Expr*? Parser.parse_expr(&self)
-{
+fn Expr*? Parser.parse_expr(&self) {
 	return self.parse_binop(11);
 }
 
-fn ParamDecl? Parser.parse_param(&self)
-{
+fn ParamDecl? Parser.parse_param(&self) {
 	ParamDecl p;
-	if (self.check_kw("in") || self.check_kw("out") || self.check_kw("inout"))
-	{
+	if (self.check_kw("in") || self.check_kw("out") || self.check_kw("inout")) {
 		p.direction = self.advance().text;
 	}
 	p.type = self.parse_type()!;
@@ -498,13 +412,10 @@ fn ParamDecl? Parser.parse_param(&self)
 	return p;
 }
 
-fn void? Parser.parse_param_list(&self, List{ParamDecl}* params)
-{
+fn void? Parser.parse_param_list(&self, List{ParamDecl}* params) {
 	self.expect(LPAREN)!;
-	if (!self.check(RPAREN))
-	{
-		while (true)
-		{
+	if (!self.check(RPAREN)) {
+		while (true) {
 			params.push(self.parse_param()!);
 			if (!self.check(COMMA)) break;
 			self.advance();
@@ -513,11 +424,9 @@ fn void? Parser.parse_param_list(&self, List{ParamDecl}* params)
 	self.expect(RPAREN)!;
 }
 
-fn void? Parser.parse_field_list(&self, List{FieldDecl}* fields)
-{
+fn void? Parser.parse_field_list(&self, List{FieldDecl}* fields) {
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
 		if (self.check(RBRACE)) break;
 		FieldDecl field;
@@ -529,58 +438,49 @@ fn void? Parser.parse_field_list(&self, List{FieldDecl}* fields)
 	self.expect(RBRACE)!;
 }
 
-fn Stmt*? Parser.parse_block(&self)
-{
+fn Stmt*? Parser.parse_block(&self) {
 	Stmt* stmt = self.new_stmt(BLOCK);
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		stmt.kids.push(self.parse_stmt()!);
 	}
 	self.expect(RBRACE)!;
 	return stmt;
 }
 
-fn Stmt*? Parser.parse_stmt(&self)
-{
+fn Stmt*? Parser.parse_stmt(&self) {
 	self.skip_annotations()!;
 	if (self.check(LBRACE)) return self.parse_block();
-	if (self.check_kw("if"))
-	{
+	if (self.check_kw("if")) {
 		self.advance();
 		Stmt* stmt = self.new_stmt(IF);
 		self.expect(LPAREN)!;
 		stmt.cond = self.parse_expr()!;
 		self.expect(RPAREN)!;
 		stmt.kids.push(self.parse_stmt()!);
-		if (self.check_kw("else"))
-		{
+		if (self.check_kw("else")) {
 			self.advance();
 			stmt.kids.push(self.parse_stmt()!);
 		}
 		return stmt;
 	}
-	if (self.check_kw("return"))
-	{
+	if (self.check_kw("return")) {
 		self.advance();
 		Stmt* stmt = self.new_stmt(RETURN);
 		if (!self.check(SEMI)) stmt.rhs = self.parse_expr()!;
 		self.expect(SEMI)!;
 		return stmt;
 	}
-	if (self.check_kw("exit"))
-	{
+	if (self.check_kw("exit")) {
 		self.advance();
 		self.expect(SEMI)!;
 		return self.new_stmt(EXIT);
 	}
-	if (self.looks_like_var_decl())
-	{
+	if (self.looks_like_var_decl()) {
 		Stmt* stmt = self.new_stmt(VAR);
 		stmt.type = self.parse_type()!;
 		stmt.name = self.expect_ident()!;
-		if (self.check(EQ))
-		{
+		if (self.check(EQ)) {
 			self.advance();
 			stmt.rhs = self.parse_expr()!;
 		}
@@ -588,8 +488,7 @@ fn Stmt*? Parser.parse_stmt(&self)
 		return stmt;
 	}
 	Expr* expr = self.parse_expr()!;
-	if (self.check(EQ))
-	{
+	if (self.check(EQ)) {
 		self.advance();
 		Stmt* stmt = self.new_stmt(ASSIGN);
 		stmt.lhs = expr;
@@ -603,38 +502,30 @@ fn Stmt*? Parser.parse_stmt(&self)
 	return stmt;
 }
 
-fn void? Parser.parse_transition(&self, Transition* trans)
-{
+fn void? Parser.parse_transition(&self, Transition* trans) {
 	self.expect_ident()!; // "transition"
-	if (self.check_kw("select"))
-	{
+	if (self.check_kw("select")) {
 		self.advance();
 		trans.kind = SELECT;
 		trans.select_keys.init(self.allocator);
 		trans.cases.init(self.allocator);
 		self.expect(LPAREN)!;
-		while (true)
-		{
+		while (true) {
 			trans.select_keys.push(self.parse_expr()!);
 			if (!self.check(COMMA)) break;
 			self.advance();
 		}
 		self.expect(RPAREN)!;
 		self.expect(LBRACE)!;
-		while (!self.check(RBRACE) && !self.check(END))
-		{
+		while (!self.check(RBRACE) && !self.check(END)) {
 			SelectCase c;
 			c.keys.init(self.allocator);
-			if (self.check_kw("default"))
-			{
+			if (self.check_kw("default")) {
 				self.advance();
 				c.is_default = true;
-			}
-			else
-			{
+			} else {
 				c.keys.push(self.parse_expr()!);
-				while (self.check(COMMA))
-				{
+				while (self.check(COMMA)) {
 					self.advance();
 					c.keys.push(self.parse_expr()!);
 				}
@@ -652,18 +543,15 @@ fn void? Parser.parse_transition(&self, Transition* trans)
 	self.expect(SEMI)!;
 }
 
-fn ParserState? Parser.parse_state(&self)
-{
+fn ParserState? Parser.parse_state(&self) {
 	ParserState state;
 	state.body.init(self.allocator);
 	self.advance(); // state
 	state.name = self.expect_ident()!;
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
-		if (self.check_kw("transition"))
-		{
+		if (self.check_kw("transition")) {
 			self.parse_transition(&state.transition)!;
 			continue;
 		}
@@ -673,8 +561,7 @@ fn ParserState? Parser.parse_state(&self)
 	return state;
 }
 
-fn ActionDecl? Parser.parse_action(&self)
-{
+fn ActionDecl? Parser.parse_action(&self) {
 	ActionDecl action;
 	action.params.init(self.allocator);
 	action.body.init(self.allocator);
@@ -686,18 +573,14 @@ fn ActionDecl? Parser.parse_action(&self)
 	return action;
 }
 
-fn void? Parser.parse_action_ref(&self, ActionRef* ref)
-{
+fn void? Parser.parse_action_ref(&self, ActionRef* ref) {
 	ref.name = self.expect_ident()!;
 	ref.args.init(self.allocator);
-	if (self.check(LPAREN))
-	{
+	if (self.check(LPAREN)) {
 		ref.has_args = true;
 		self.advance();
-		if (!self.check(RPAREN))
-		{
-			while (true)
-			{
+		if (!self.check(RPAREN)) {
+			while (true) {
 				ref.args.push(self.parse_expr()!);
 				if (!self.check(COMMA)) break;
 				self.advance();
@@ -707,25 +590,21 @@ fn void? Parser.parse_action_ref(&self, ActionRef* ref)
 	}
 }
 
-fn TableDecl? Parser.parse_table(&self)
-{
+fn TableDecl? Parser.parse_table(&self) {
 	TableDecl table;
 	table.keys.init(self.allocator);
 	table.actions.init(self.allocator);
 	self.advance(); // table
 	table.name = self.expect_ident()!;
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
 		if (self.check(RBRACE)) break;
-		if (self.check_kw("key"))
-		{
+		if (self.check_kw("key")) {
 			self.advance();
 			self.expect(EQ)!;
 			self.expect(LBRACE)!;
-			while (!self.check(RBRACE) && !self.check(END))
-			{
+			while (!self.check(RBRACE) && !self.check(END)) {
 				KeyElem key;
 				key.expr = self.parse_expr()!;
 				self.expect(COLON)!;
@@ -736,13 +615,11 @@ fn TableDecl? Parser.parse_table(&self)
 			self.expect(RBRACE)!;
 			continue;
 		}
-		if (self.check_kw("actions"))
-		{
+		if (self.check_kw("actions")) {
 			self.advance();
 			self.expect(EQ)!;
 			self.expect(LBRACE)!;
-			while (!self.check(RBRACE) && !self.check(END))
-			{
+			while (!self.check(RBRACE) && !self.check(END)) {
 				ActionRef ref;
 				self.parse_action_ref(&ref)!;
 				self.expect(SEMI)!;
@@ -751,20 +628,17 @@ fn TableDecl? Parser.parse_table(&self)
 			self.expect(RBRACE)!;
 			continue;
 		}
-		if (self.check_kw("size"))
-		{
+		if (self.check_kw("size")) {
 			self.advance();
 			self.expect(EQ)!;
 			table.size = self.parse_expr()!;
 			self.expect(SEMI)!;
 			continue;
 		}
-		if (self.check_kw("const") && self.peek_at(1).is_kw("default_action"))
-		{
+		if (self.check_kw("const") && self.peek_at(1).is_kw("default_action")) {
 			self.advance();
 		}
-		if (self.check_kw("default_action"))
-		{
+		if (self.check_kw("default_action")) {
 			self.advance();
 			self.expect(EQ)!;
 			self.parse_action_ref(&table.default_action)!;
@@ -772,41 +646,28 @@ fn TableDecl? Parser.parse_table(&self)
 			self.expect(SEMI)!;
 			continue;
 		}
-		if (self.check_kw("const") && self.peek_at(1).is_kw("entries"))
-		{
+		if (self.check_kw("const") && self.peek_at(1).is_kw("entries")) {
 			self.advance();
 		}
-		if (self.check_kw("entries"))
-		{
+		if (self.check_kw("entries")) {
 			self.advance();
 			self.expect(EQ)!;
 			self.skip_balanced(LBRACE, RBRACE)!;
 			continue;
 		}
-		if (self.check(IDENT))
-		{
+		if (self.check(IDENT)) {
 			self.advance();
-			if (self.check(EQ))
-			{
+			if (self.check(EQ)) {
 				self.advance();
-				if (self.check(LBRACE))
-				{
+				if (self.check(LBRACE)) {
 					self.skip_balanced(LBRACE, RBRACE)!;
-				}
-				else
-				{
-					while (!self.check(SEMI) && !self.check(END))
-					{
-						if (self.check(LBRACE))
-						{
+				} else {
+					while (!self.check(SEMI) && !self.check(END)) {
+						if (self.check(LBRACE)) {
 							self.skip_balanced(LBRACE, RBRACE)!;
-						}
-						else if (self.check(LPAREN))
-						{
+						} else if (self.check(LPAREN)) {
 							self.skip_balanced(LPAREN, RPAREN)!;
-						}
-						else
-						{
+						} else {
 							self.advance();
 						}
 					}
@@ -821,8 +682,7 @@ fn TableDecl? Parser.parse_table(&self)
 	return table;
 }
 
-fn Decl*? Parser.parse_header_like(&self, DeclKind kind)
-{
+fn Decl*? Parser.parse_header_like(&self, DeclKind kind) {
 	self.advance();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
@@ -831,8 +691,7 @@ fn Decl*? Parser.parse_header_like(&self, DeclKind kind)
 	return decl;
 }
 
-fn Decl*? Parser.parse_typedef(&self)
-{
+fn Decl*? Parser.parse_typedef(&self) {
 	self.advance();
 	TypeRef ty = self.parse_type()!;
 	String name = self.expect_ident()!;
@@ -842,8 +701,7 @@ fn Decl*? Parser.parse_typedef(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_const(&self)
-{
+fn Decl*? Parser.parse_const(&self) {
 	self.advance();
 	TypeRef ty = self.parse_type()!;
 	String name = self.expect_ident()!;
@@ -856,31 +714,24 @@ fn Decl*? Parser.parse_const(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_enum(&self)
-{
+fn Decl*? Parser.parse_enum(&self) {
 	self.advance();
-	if (self.at_type_name() || (self.check(IDENT) && self.peek_at(1).kind == LT))
-	{
+	if (self.at_type_name() || (self.check(IDENT) && self.peek_at(1).kind == LT)) {
 		(void)self.parse_type()!;
 	}
 	String name = self.expect_ident()!;
 	Decl* decl = self.new_decl(ENUM, name);
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		String member = self.expect_ident()!;
-		if (self.check(EQ))
-		{
+		if (self.check(EQ)) {
 			self.advance();
 			(void)self.parse_expr()!;
 		}
 		decl.enum_members.push(member);
-		if (self.check(COMMA))
-		{
+		if (self.check(COMMA)) {
 			self.advance();
-		}
-		else
-		{
+		} else {
 			break;
 		}
 	}
@@ -889,33 +740,27 @@ fn Decl*? Parser.parse_enum(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_parser_decl(&self)
-{
+fn Decl*? Parser.parse_parser_decl(&self) {
 	self.advance();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
 	Decl* decl = self.new_decl(PARSER, name);
 	self.parse_param_list(&decl.params)!;
-	if (self.check(LT) || self.check_kw("transition"))
-	{
+	if (self.check(LT) || self.check_kw("transition")) {
 		// optional constructor / no-op
 	}
 	self.expect(LBRACE)!;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
-		if (self.check_kw("state"))
-		{
+		if (self.check_kw("state")) {
 			decl.states.push(self.parse_state()!);
 			continue;
 		}
-		if (self.check_kw("const"))
-		{
+		if (self.check_kw("const")) {
 			decl.locals.push(self.parse_const()!);
 			continue;
 		}
-		if (self.check_kw("value_set"))
-		{
+		if (self.check_kw("value_set")) {
 			while (!self.check(SEMI) && !self.check(END)) self.advance();
 			self.expect(SEMI)!;
 			continue;
@@ -926,8 +771,7 @@ fn Decl*? Parser.parse_parser_decl(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_control_decl(&self)
-{
+fn Decl*? Parser.parse_control_decl(&self) {
 	self.advance();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
@@ -935,22 +779,18 @@ fn Decl*? Parser.parse_control_decl(&self)
 	self.parse_param_list(&decl.params)!;
 	self.expect(LBRACE)!;
 	bool saw_apply = false;
-	while (!self.check(RBRACE) && !self.check(END))
-	{
+	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
 		if (self.check(RBRACE)) break;
-		if (self.check_kw("action"))
-		{
+		if (self.check_kw("action")) {
 			decl.actions.push(self.parse_action()!);
 			continue;
 		}
-		if (self.check_kw("table"))
-		{
+		if (self.check_kw("table")) {
 			decl.tables.push(self.parse_table()!);
 			continue;
 		}
-		if (self.check_kw("apply"))
-		{
+		if (self.check_kw("apply")) {
 			if (saw_apply) self.fail("multiple apply blocks")!;
 			saw_apply = true;
 			self.advance();
@@ -958,28 +798,23 @@ fn Decl*? Parser.parse_control_decl(&self)
 			foreach (s : block.kids) decl.apply.push(s);
 			continue;
 		}
-		if (self.check_kw("const"))
-		{
+		if (self.check_kw("const")) {
 			decl.locals.push(self.parse_const()!);
 			continue;
 		}
-		if (self.check_kw("header"))
-		{
+		if (self.check_kw("header")) {
 			decl.locals.push(self.parse_header_like(HEADER)!);
 			continue;
 		}
-		if (self.check_kw("struct"))
-		{
+		if (self.check_kw("struct")) {
 			decl.locals.push(self.parse_header_like(STRUCT)!);
 			continue;
 		}
-		if (self.check_kw("typedef") || self.check_kw("type"))
-		{
+		if (self.check_kw("typedef") || self.check_kw("type")) {
 			decl.locals.push(self.parse_typedef()!);
 			continue;
 		}
-		if (self.check(IDENT) && (self.peek_at(1).kind == LPAREN || self.peek_at(1).kind == LT))
-		{
+		if (self.check(IDENT) && (self.peek_at(1).kind == LPAREN || self.peek_at(1).kind == LT)) {
 			self.advance();
 			self.skip_type_args()!;
 			self.skip_balanced(LPAREN, RPAREN)!;
@@ -993,8 +828,7 @@ fn Decl*? Parser.parse_control_decl(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_top_action(&self)
-{
+fn Decl*? Parser.parse_top_action(&self) {
 	ActionDecl action = self.parse_action()!;
 	Decl* decl = self.new_decl(ACTION, action.name);
 	decl.action = action;
@@ -1002,100 +836,79 @@ fn Decl*? Parser.parse_top_action(&self)
 	return decl;
 }
 
-fn Decl*? Parser.parse_top_table(&self)
-{
+fn Decl*? Parser.parse_top_table(&self) {
 	TableDecl table = self.parse_table()!;
 	Decl* decl = self.new_decl(TABLE, table.name);
 	decl.table = table;
 	return decl;
 }
 
-fn void? Parser.skip_extern_or_error(&self)
-{
+fn void? Parser.skip_extern_or_error(&self) {
 	self.advance();
 	if (self.check(IDENT)) self.advance();
 	self.skip_type_args()!;
-	if (self.check(LBRACE))
-	{
+	if (self.check(LBRACE)) {
 		self.skip_balanced(LBRACE, RBRACE)!;
-	}
-	else if (self.check(LPAREN))
-	{
+	} else if (self.check(LPAREN)) {
 		self.skip_balanced(LPAREN, RPAREN)!;
 		if (self.check(IDENT)) self.advance();
 		if (self.check(SEMI)) self.advance();
-	}
-	else if (self.check(SEMI))
-	{
+	} else if (self.check(SEMI)) {
 		self.advance();
 	}
 }
 
-fn Program*? Parser.parse_program(&self)
-{
+fn Program*? Parser.parse_program(&self) {
 	Program* program = alloc::new(self.allocator, Program);
 	program.decls.init(self.allocator);
-	while (!self.check(END))
-	{
+	while (!self.check(END)) {
 		self.skip_annotations()!;
 		if (self.check(END)) break;
-		if (self.check_kw("header") || self.check_kw("header_union"))
-		{
+		if (self.check_kw("header") || self.check_kw("header_union")) {
 			program.decls.push(self.parse_header_like(HEADER)!);
 			continue;
 		}
-		if (self.check_kw("struct"))
-		{
+		if (self.check_kw("struct")) {
 			program.decls.push(self.parse_header_like(STRUCT)!);
 			continue;
 		}
-		if (self.check_kw("typedef") || self.check_kw("type"))
-		{
+		if (self.check_kw("typedef") || self.check_kw("type")) {
 			program.decls.push(self.parse_typedef()!);
 			continue;
 		}
-		if (self.check_kw("const"))
-		{
+		if (self.check_kw("const")) {
 			program.decls.push(self.parse_const()!);
 			continue;
 		}
-		if (self.check_kw("enum"))
-		{
+		if (self.check_kw("enum")) {
 			program.decls.push(self.parse_enum()!);
 			continue;
 		}
-		if (self.check_kw("parser"))
-		{
+		if (self.check_kw("parser")) {
 			program.decls.push(self.parse_parser_decl()!);
 			continue;
 		}
-		if (self.check_kw("control"))
-		{
+		if (self.check_kw("control")) {
 			program.decls.push(self.parse_control_decl()!);
 			continue;
 		}
-		if (self.check_kw("action"))
-		{
+		if (self.check_kw("action")) {
 			program.decls.push(self.parse_top_action()!);
 			continue;
 		}
-		if (self.check_kw("table"))
-		{
+		if (self.check_kw("table")) {
 			program.decls.push(self.parse_top_table()!);
 			continue;
 		}
 		if (self.check_kw("extern") || self.check_kw("error") || self.check_kw("match_kind")
-			|| self.check_kw("package"))
-		{
+			|| self.check_kw("package")) {
 			self.skip_extern_or_error()!;
 			continue;
 		}
-		if (self.check(IDENT))
-		{
+		if (self.check(IDENT)) {
 			self.advance();
 			self.skip_type_args()!;
-			if (self.check(LPAREN))
-			{
+			if (self.check(LPAREN)) {
 				self.skip_balanced(LPAREN, RPAREN)!;
 				if (self.check(IDENT)) self.advance();
 				self.expect(SEMI)!;
@@ -1107,19 +920,14 @@ fn Program*? Parser.parse_program(&self)
 	return program;
 }
 
-fn Program*? parse_source(Allocator allocator, String filename, String source)
-{
+fn Program*? parse_source(Allocator allocator, String filename, String source) {
 	List{Token} tokens = tokenize(allocator, source)!;
 	Parser parser = parser_create(allocator, filename, tokens);
 	Program*? program = parser.parse_program();
-	if (catch err = program)
-	{
-		if (parser.had_error)
-		{
+	if (catch err = program) {
+		if (parser.had_error) {
 			parser.report();
-		}
-		else
-		{
+		} else {
 			io::eprintfn("%s: error: %s", filename, err);
 		}
 		return err~;
@@ -1127,11 +935,9 @@ fn Program*? parse_source(Allocator allocator, String filename, String source)
 	return program;
 }
 
-fn Program*? parse_file(Allocator allocator, String path)
-{
+fn Program*? parse_file(Allocator allocator, String path) {
 	char[]? data = file::load(allocator, path);
-	if (catch err = data)
-	{
+	if (catch err = data) {
 		io::eprintfn("error: cannot read %s: %s", path, err);
 		return err~;
 	}

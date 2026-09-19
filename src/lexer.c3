@@ -4,8 +4,7 @@ import std::collections::list;
 
 excuse { PARSE_FAILED }
 
-enum TokenKind
-{
+enum TokenKind {
 	END,
 	IDENT,
 	INTEGER,
@@ -47,16 +46,14 @@ enum TokenKind
 	AT,
 }
 
-struct Token
-{
+struct Token {
 	TokenKind kind;
 	String text;
 	uint line;
 	uint column;
 }
 
-struct Lexer
-{
+struct Lexer {
 	String source;
 	sz pos;
 	uint line;
@@ -66,15 +63,12 @@ struct Lexer
 	uint error_column;
 }
 
-fn bool Token.is_kw(self, String name)
-{
+fn bool Token.is_kw(self, String name) {
 	return self.kind == IDENT && self.text == name;
 }
 
-fn String TokenKind.label(self)
-{
-	switch (self)
-	{
+fn String TokenKind.label(self) {
+	switch (self) {
 		case END: return "end of file";
 		case IDENT: return "identifier";
 		case INTEGER: return "integer";
@@ -118,82 +112,66 @@ fn String TokenKind.label(self)
 	}
 }
 
-fn void Lexer.init(&self, String source)
-{
+fn void Lexer.init(&self, String source) {
 	self.source = source;
 	self.pos = 0;
 	self.line = 1;
 	self.column = 1;
 }
 
-fn bool Lexer.at_end(&self)
-{
+fn bool Lexer.at_end(&self) {
 	return self.pos >= self.source.len;
 }
 
-fn char Lexer.peek(&self)
-{
+fn char Lexer.peek(&self) {
 	if (self.at_end()) return 0;
 	return self.source[self.pos];
 }
 
-fn char Lexer.peek_next(&self)
-{
+fn char Lexer.peek_next(&self) {
 	if (self.pos + 1 >= self.source.len) return 0;
 	return self.source[self.pos + 1];
 }
 
-fn char Lexer.take(&self)
-{
+fn char Lexer.take(&self) {
 	char c = self.peek();
 	if (self.at_end()) return 0;
 	self.pos++;
-	if (c == '\n')
-	{
+	if (c == '\n') {
 		self.line++;
 		self.column = 1;
-	}
-	else
-	{
+	} else {
 		self.column++;
 	}
 	return c;
 }
 
-fn void? Lexer.fail(&self, String msg)
-{
+fn void? Lexer.fail(&self, String msg) {
 	self.error_msg = msg;
 	self.error_line = self.line;
 	self.error_column = self.column;
 	return PARSE_FAILED~;
 }
 
-fn void? Lexer.skip_trivia(&self)
-{
-	while (!self.at_end())
-	{
+fn void? Lexer.skip_trivia(&self) {
+	while (!self.at_end()) {
 		char c = self.peek();
-		if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
-		{
+		if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
 			self.take();
 			continue;
 		}
-		if (c == '/' && self.peek_next() == '/')
-		{
+		if (c == '/' && self.peek_next() == '/') {
 			self.take();
 			self.take();
 			while (!self.at_end() && self.peek() != '\n') self.take();
 			continue;
 		}
-		if (c == '/' && self.peek_next() == '*')
-		{
+		if (c == '/' && self.peek_next() == '*') {
 			self.take();
 			self.take();
 			bool closed = false;
-			while (!self.at_end())
-			{
-				if (self.peek() == '*' && self.peek_next() == '/')
-				{
+			while (!self.at_end()) {
+				if (self.peek() == '*' && self.peek_next() == '/') {
 					self.take();
 					self.take();
 					closed = true;
@@ -204,8 +182,7 @@ fn void? Lexer.skip_trivia(&self)
 			if (!closed) self.fail("unterminated block comment")!;
 			continue;
 		}
-		if (c == '#')
-		{
+		if (c == '#') {
 			while (!self.at_end() && self.peek() != '\n') self.take();
 			continue;
 		}
@@ -213,8 +190,7 @@ fn void? Lexer.skip_trivia(&self)
 	}
 }
 
-fn Token Lexer.make(&self, TokenKind kind, sz start, uint line, uint column)
-{
+fn Token Lexer.make(&self, TokenKind kind, sz start, uint line, uint column) {
 	Token tok;
 	tok.kind = kind;
 	tok.text = self.source[start:self.pos - start];
@@ -223,86 +199,67 @@ fn Token Lexer.make(&self, TokenKind kind, sz start, uint line, uint column)
 	return tok;
 }
 
-fn void Lexer.scan_ident(&self)
-{
-	while (!self.at_end())
-	{
+fn void Lexer.scan_ident(&self) {
+	while (!self.at_end()) {
 		char c = self.peek();
-		if (c.is_alnum() || c == '_')
-		{
+		if (c.is_alnum() || c == '_') {
 			self.take();
-		}
-		else
-		{
+		} else {
 			break;
 		}
 	}
 }
 
-fn void Lexer.scan_digits(&self)
-{
+fn void Lexer.scan_digits(&self) {
 	while (self.peek().is_digit()) self.take();
 }
 
-fn void Lexer.scan_hex(&self)
-{
+fn void Lexer.scan_hex(&self) {
 	while (self.peek().is_xdigit()) self.take();
 }
 
-fn void Lexer.scan_number(&self)
-{
-	if (self.peek() == '0')
-	{
+fn void Lexer.scan_number(&self) {
+	if (self.peek() == '0') {
 		self.take();
 		char b = self.peek();
-		if (b == 'x' || b == 'X')
-		{
+		if (b == 'x' || b == 'X') {
 			self.take();
 			self.scan_hex();
 			return;
 		}
-		if (b == 'b' || b == 'B')
-		{
+		if (b == 'b' || b == 'B') {
 			self.take();
 			while (self.peek() == '0' || self.peek() == '1') self.take();
 			return;
 		}
-		if (b == 'o' || b == 'O')
-		{
+		if (b == 'o' || b == 'O') {
 			self.take();
 			while (self.peek().is_odigit()) self.take();
 			return;
 		}
 		self.scan_digits();
-	}
-	else
-	{
+	} else {
 		self.scan_digits();
 	}
 	char w = self.peek();
-	if (w == 'w' || w == 'W' || w == 's' || w == 'S')
-	{
+	if (w == 'w' || w == 'W' || w == 's' || w == 'S') {
 		self.take();
-		if (self.peek() == '0')
-		{
+		if (self.peek() == '0') {
 			sz saved = self.pos;
 			uint saved_col = self.column;
 			self.take();
 			char b = self.peek();
-			if (b == 'x' || b == 'X')
-			{
+			if (b == 'x' || b == 'X') {
 				self.take();
 				self.scan_hex();
 				return;
 			}
-			if (b == 'b' || b == 'B')
-			{
+			if (b == 'b' || b == 'B') {
 				self.take();
 				while (self.peek() == '0' || self.peek() == '1') self.take();
 				return;
 			}
-			if (b == 'o' || b == 'O')
-			{
+			if (b == 'o' || b == 'O') {
 				self.take();
 				while (self.peek().is_odigit()) self.take();
 				return;
@@ -314,13 +271,10 @@ fn void Lexer.scan_number(&self)
 	}
 }
 
-fn void? Lexer.scan_string(&self)
-{
-	while (!self.at_end())
-	{
+fn void? Lexer.scan_string(&self) {
+	while (!self.at_end()) {
 		char c = self.peek();
-		if (c == '"')
-		{
+		if (c == '"') {
 			self.take();
 			return;
 		}
@@ -332,11 +286,9 @@ fn void? Lexer.scan_string(&self)
 	return PARSE_FAILED~;
 }
 
-fn Token? Lexer.scan_token(&self)
-{
+fn Token? Lexer.scan_token(&self) {
 	self.skip_trivia()!;
-	if (self.at_end())
-	{
+	if (self.at_end()) {
 		Token end;
 		end.kind = END;
 		end.text = "";
@@ -348,26 +300,22 @@ fn Token? Lexer.scan_token(&self)
 	uint column = self.column;
 	sz start = self.pos;
 	char c = self.take();
-	if (c.is_alpha() || c == '_')
-	{
+	if (c.is_alpha() || c == '_') {
 		self.scan_ident();
 		return self.make(IDENT, start, line, column);
 	}
-	if (c.is_digit())
-	{
+	if (c.is_digit()) {
 		self.pos = start;
 		self.line = line;
 		self.column = column;
 		self.scan_number();
 		return self.make(INTEGER, start, line, column);
 	}
-	if (c == '"')
-	{
+	if (c == '"') {
 		self.scan_string()!;
 		return self.make(STR, start, line, column);
 	}
-	switch (c)
-	{
+	switch (c) {
 		case '{': return self.make(LBRACE, start, line, column);
 		case '}': return self.make(RBRACE, start, line, column);
 		case '(': return self.make(LPAREN, start, line, column);
@@ -387,56 +335,47 @@ fn Token? Lexer.scan_token(&self)
 		case '@': return self.make(AT, start, line, column);
 		case '-': return self.make(MINUS, start, line, column);
 		case '.':
-			if (self.peek() == '.')
-			{
+			if (self.peek() == '.') {
 				self.take();
 				return self.make(DOTDOT, start, line, column);
 			}
 			return self.make(DOT, start, line, column);
 		case '=':
-			if (self.peek() == '=')
-			{
+			if (self.peek() == '=') {
 				self.take();
 				return self.make(EQEQ, start, line, column);
 			}
 			return self.make(EQ, start, line, column);
 		case '!':
-			if (self.peek() == '=')
-			{
+			if (self.peek() == '=') {
 				self.take();
 				return self.make(NEQ, start, line, column);
 			}
 			return self.make(BANG, start, line, column);
 		case '<':
-			if (self.peek() == '=')
-			{
+			if (self.peek() == '=') {
 				self.take();
 				return self.make(LE, start, line, column);
 			}
-			if (self.peek() == '<')
-			{
+			if (self.peek() == '<') {
 				self.take();
 				return self.make(LSHIFT, start, line, column);
 			}
 			return self.make(LT, start, line, column);
 		case '>':
-			if (self.peek() == '=')
-			{
+			if (self.peek() == '=') {
 				self.take();
 				return self.make(GE, start, line, column);
 			}
-			if (self.peek() == '>')
-			{
+			if (self.peek() == '>') {
 				self.take();
 				return self.make(RSHIFT, start, line, column);
 			}
 			return self.make(GT, start, line, column);
 		case '&':
-			if (self.peek() == '&')
-			{
+			if (self.peek() == '&') {
 				self.take();
-				if (self.peek() == '&')
-				{
+				if (self.peek() == '&') {
 					self.take();
 					return self.make(MASKAND, start, line, column);
 				}
@@ -444,8 +383,7 @@ fn Token? Lexer.scan_token(&self)
 			}
 			return self.make(AMP, start, line, column);
 		case '|':
-			if (self.peek() == '|')
-			{
+			if (self.peek() == '|') {
 				self.take();
 				return self.make(OROR, start, line, column);
 			}
@@ -456,14 +394,12 @@ fn Token? Lexer.scan_token(&self)
 	}
 }
 
-fn List{Token}? tokenize(Allocator allocator, String source)
-{
+fn List{Token}? tokenize(Allocator allocator, String source) {
 	Lexer lexer;
 	lexer.init(source);
 	List{Token} tokens;
 	tokens.init(allocator);
-	while (true)
-	{
+	while (true) {
 		Token tok = lexer.scan_token()!;
 		tokens.push(tok);
 		if (tok.kind == END) break;

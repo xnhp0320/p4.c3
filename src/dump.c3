@@ -2,15 +2,12 @@ module p4c3;
 import std::io;
 import std::collections::list;
 
-fn void pad(int indent)
-{
+fn void pad(int indent) {
 	for (int i = 0; i < indent; i++) io::print("  ");
 }
 
-fn void dump_type(TypeRef type)
-{
-	switch (type.kind)
-	{
+fn void dump_type(TypeRef type) {
+	switch (type.kind) {
 		case BIT:
 			io::printf("bit<%d>", type.width);
 		case INT:
@@ -26,21 +23,17 @@ fn void dump_type(TypeRef type)
 		case NAME:
 			io::print(type.name);
 	}
-	if (type.stack_size)
-	{
+	if (type.stack_size) {
 		io::printf("[%d]", type.stack_size);
 	}
 }
 
-fn void dump_expr(Expr* expr)
-{
-	if (!expr)
-	{
+fn void dump_expr(Expr* expr) {
+	if (!expr) {
 		io::print("<null>");
 		return;
 	}
-	switch (expr.kind)
-	{
+	switch (expr.kind) {
 		case IDENT:
 		case NUMBER:
 			io::print(expr.token.text);
@@ -57,8 +50,7 @@ fn void dump_expr(Expr* expr)
 		case CALL:
 			dump_expr(expr.kids[0]);
 			io::print("(");
-			for (sz i = 1; i < expr.kids.len(); i++)
-			{
+			for (sz i = 1; i < expr.kids.len(); i++) {
 				if (i > 1) io::print(", ");
 				dump_expr(expr.kids[i]);
 			}
@@ -74,8 +66,7 @@ fn void dump_expr(Expr* expr)
 			io::print(")");
 		case TUPLE:
 			io::print("(");
-			foreach (i, kid : expr.kids)
-			{
+			foreach (i, kid : expr.kids) {
 				if (i > 0) io::print(", ");
 				dump_expr(kid);
 			}
@@ -83,11 +74,9 @@ fn void dump_expr(Expr* expr)
 	}
 }
 
-fn void dump_stmt(Stmt* stmt, int indent)
-{
+fn void dump_stmt(Stmt* stmt, int indent) {
 	pad(indent);
-	switch (stmt.kind)
-	{
+	switch (stmt.kind) {
 		case BLOCK:
 			io::printn("{");
 			foreach (kid : stmt.kids) dump_stmt(kid, indent + 1);
@@ -106,16 +95,14 @@ fn void dump_stmt(Stmt* stmt, int indent)
 			dump_expr(stmt.cond);
 			io::printn(")");
 			if (stmt.kids.len() > 0) dump_stmt(stmt.kids[0], indent + 1);
-			if (stmt.kids.len() > 1)
-			{
+			if (stmt.kids.len() > 1) {
 				pad(indent);
 				io::printn("else");
 				dump_stmt(stmt.kids[1], indent + 1);
 			}
 		case RETURN:
 			io::print("return");
-			if (stmt.rhs)
-			{
+			if (stmt.rhs) {
 				io::print(" ");
 				dump_expr(stmt.rhs);
 			}
@@ -125,8 +112,7 @@ fn void dump_stmt(Stmt* stmt, int indent)
 		case VAR:
 			dump_type(stmt.type);
 			io::printf(" %s", stmt.name);
-			if (stmt.rhs)
-			{
+			if (stmt.rhs) {
 				io::print(" = ");
 				dump_expr(stmt.rhs);
 			}
@@ -134,11 +120,9 @@ fn void dump_stmt(Stmt* stmt, int indent)
 	}
 }
 
-fn void dump_params(List{ParamDecl} params)
-{
+fn void dump_params(List{ParamDecl} params) {
 	io::print("(");
-	foreach (i, p : params)
-	{
+	foreach (i, p : params) {
 		if (i > 0) io::print(", ");
 		if (p.direction.len) io::printf("%s ", p.direction);
 		dump_type(p.type);
@@ -147,8 +131,7 @@ fn void dump_params(List{ParamDecl} params)
 	io::print(")");
 }
 
-fn void dump_action(ActionDecl action, int indent)
-{
+fn void dump_action(ActionDecl action, int indent) {
 	pad(indent);
 	io::printf("action %s", action.name);
 	dump_params(action.params);
@@ -158,16 +141,13 @@ fn void dump_action(ActionDecl action, int indent)
 	io::printn("}");
 }
 
-fn void dump_table(TableDecl table, int indent)
-{
+fn void dump_table(TableDecl table, int indent) {
 	pad(indent);
 	io::printfn("table %s {", table.name);
-	if (table.keys.len())
-	{
+	if (table.keys.len()) {
 		pad(indent + 1);
 		io::printn("key = {");
-		foreach (k : table.keys)
-		{
+		foreach (k : table.keys) {
 			pad(indent + 2);
 			dump_expr(k.expr);
 			io::printfn(": %s;", k.match_kind);
@@ -175,19 +155,15 @@ fn void dump_table(TableDecl table, int indent)
 		pad(indent + 1);
 		io::printn("}");
 	}
-	if (table.actions.len())
-	{
+	if (table.actions.len()) {
 		pad(indent + 1);
 		io::printn("actions = {");
-		foreach (a : table.actions)
-		{
+		foreach (a : table.actions) {
 			pad(indent + 2);
 			io::print(a.name);
-			if (a.has_args)
-			{
+			if (a.has_args) {
 				io::print("(");
-				foreach (i, arg : a.args)
-				{
+				foreach (i, arg : a.args) {
 					if (i > 0) io::print(", ");
 					dump_expr(arg);
 				}
@@ -198,22 +174,18 @@ fn void dump_table(TableDecl table, int indent)
 		pad(indent + 1);
 		io::printn("}");
 	}
-	if (table.size)
-	{
+	if (table.size) {
 		pad(indent + 1);
 		io::print("size = ");
 		dump_expr(table.size);
 		io::printn(";");
 	}
-	if (table.has_default)
-	{
+	if (table.has_default) {
 		pad(indent + 1);
 		io::printf("default_action = %s", table.default_action.name);
-		if (table.default_action.has_args)
-		{
+		if (table.default_action.has_args) {
 			io::print("(");
-			foreach (i, arg : table.default_action.args)
-			{
+			foreach (i, arg : table.default_action.args) {
 				if (i > 0) io::print(", ");
 				dump_expr(arg);
 			}
@@ -225,15 +197,12 @@ fn void dump_table(TableDecl table, int indent)
 	io::printn("}");
 }
 
-fn void dump_decl(Decl* decl, int indent)
-{
+fn void dump_decl(Decl* decl, int indent) {
 	pad(indent);
-	switch (decl.kind)
-	{
+	switch (decl.kind) {
 		case HEADER:
 			io::printfn("header %s {", decl.name);
-			foreach (f : decl.fields)
-			{
+			foreach (f : decl.fields) {
 				pad(indent + 1);
 				dump_type(f.type);
 				io::printfn(" %s;", f.name);
@@ -242,8 +211,7 @@ fn void dump_decl(Decl* decl, int indent)
 			io::printn("}");
 		case STRUCT:
 			io::printfn("struct %s {", decl.name);
-			foreach (f : decl.fields)
-			{
+			foreach (f : decl.fields) {
 				pad(indent + 1);
 				dump_type(f.type);
 				io::printfn(" %s;", f.name);
@@ -262,8 +230,7 @@ fn void dump_decl(Decl* decl, int indent)
 			io::printn(";");
 		case ENUM:
 			io::printfn("enum %s {", decl.name);
-			foreach (m : decl.enum_members)
-			{
+			foreach (m : decl.enum_members) {
 				pad(indent + 1);
 				io::printfn("%s,", m);
 			}
@@ -273,37 +240,27 @@ fn void dump_decl(Decl* decl, int indent)
 			io::printf("parser %s", decl.name);
 			dump_params(decl.params);
 			io::printn(" {");
-			foreach (st : decl.states)
-			{
+			foreach (st : decl.states) {
 				pad(indent + 1);
 				io::printfn("state %s {", st.name);
 				foreach (s : st.body) dump_stmt(s, indent + 2);
-				if (st.transition.kind == NAME)
-				{
+				if (st.transition.kind == NAME) {
 					pad(indent + 2);
 					io::printfn("transition %s;", st.transition.target);
-				}
-				else if (st.transition.kind == SELECT)
-				{
+				} else if (st.transition.kind == SELECT) {
 					pad(indent + 2);
 					io::print("transition select(");
-					foreach (i, key : st.transition.select_keys)
-					{
+					foreach (i, key : st.transition.select_keys) {
 						if (i > 0) io::print(", ");
 						dump_expr(key);
 					}
 					io::printn(") {");
-					foreach (c : st.transition.cases)
-					{
+					foreach (c : st.transition.cases) {
 						pad(indent + 3);
-						if (c.is_default)
-						{
+						if (c.is_default) {
 							io::print("default");
-						}
-						else
-						{
-							foreach (i, key : c.keys)
-							{
+						} else {
+							foreach (i, key : c.keys) {
 								if (i > 0) io::print(", ");
 								dump_expr(key);
 							}
@@ -339,10 +296,8 @@ fn void dump_decl(Decl* decl, int indent)
 	}
 }
 
-fn void dump_program(Program* program)
-{
-	foreach (d : program.decls)
-	{
+fn void dump_program(Program* program) {
+	foreach (d : program.decls) {
 		dump_decl(d, 0);
 		io::printn("");
 	}
