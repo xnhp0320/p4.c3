@@ -49,12 +49,25 @@ fn void dump_expr(Expr* expr) {
 			io::print("]");
 		case CALL:
 			dump_expr(expr.kids[0]);
+			if (expr.type_args.len()) {
+				io::print("<");
+				foreach (i, ty : expr.type_args) {
+					if (i > 0) io::print(", ");
+					dump_type(ty);
+				}
+				io::print(">");
+			}
 			io::print("(");
 			for (sz i = 1; i < expr.kids.len(); i++) {
 				if (i > 1) io::print(", ");
 				dump_expr(expr.kids[i]);
 			}
 			io::print(")");
+		case CAST:
+			io::print("(");
+			dump_type(expr.type);
+			io::print(")");
+			dump_expr(expr.kids[0]);
 		case UNARY:
 			io::print(expr.token.text);
 			dump_expr(expr.kids[0]);
@@ -141,6 +154,18 @@ fn void dump_action(ActionDecl action, int indent) {
 	io::printn("}");
 }
 
+fn void dump_action_ref(ActionRef a) {
+	io::print(a.name);
+	if (a.has_args) {
+		io::print("(");
+		foreach (i, arg : a.args) {
+			if (i > 0) io::print(", ");
+			dump_expr(arg);
+		}
+		io::print(")");
+	}
+}
+
 fn void dump_table(TableDecl table, int indent) {
 	pad(indent);
 	io::printfn("table %s {", table.name);
@@ -160,15 +185,7 @@ fn void dump_table(TableDecl table, int indent) {
 		io::printn("actions = {");
 		foreach (a : table.actions) {
 			pad(indent + 2);
-			io::print(a.name);
-			if (a.has_args) {
-				io::print("(");
-				foreach (i, arg : a.args) {
-					if (i > 0) io::print(", ");
-					dump_expr(arg);
-				}
-				io::print(")");
-			}
+			dump_action_ref(a);
 			io::printn(";");
 		}
 		pad(indent + 1);
@@ -182,15 +199,8 @@ fn void dump_table(TableDecl table, int indent) {
 	}
 	if (table.has_default) {
 		pad(indent + 1);
-		io::printf("default_action = %s", table.default_action.name);
-		if (table.default_action.has_args) {
-			io::print("(");
-			foreach (i, arg : table.default_action.args) {
-				if (i > 0) io::print(", ");
-				dump_expr(arg);
-			}
-			io::print(")");
-		}
+		io::print("default_action = ");
+		dump_action_ref(table.default_action);
 		io::printn(";");
 	}
 	pad(indent);
@@ -201,16 +211,8 @@ fn void dump_decl(Decl* decl, int indent) {
 	pad(indent);
 	switch (decl.kind) {
 		case HEADER:
-			io::printfn("header %s {", decl.name);
-			foreach (f : decl.fields) {
-				pad(indent + 1);
-				dump_type(f.type);
-				io::printfn(" %s;", f.name);
-			}
-			pad(indent);
-			io::printn("}");
 		case STRUCT:
-			io::printfn("struct %s {", decl.name);
+			io::printfn("%s %s {", decl.kind == HEADER ? "header" : "struct", decl.name);
 			foreach (f : decl.fields) {
 				pad(indent + 1);
 				dump_type(f.type);

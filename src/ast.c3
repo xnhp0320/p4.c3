@@ -36,6 +36,7 @@ enum ExprKind {
 	MEMBER,
 	INDEX,
 	CALL,
+	CAST,
 	UNARY,
 	BINARY,
 	TUPLE,
@@ -44,6 +45,8 @@ enum ExprKind {
 struct Expr {
 	ExprKind kind;
 	Token token;
+	TypeRef type; // Target type for CAST.
+	List{TypeRef} type_args; // Explicit method type arguments, e.g. lookahead<T>.
 	List{Expr*} kids;
 }
 

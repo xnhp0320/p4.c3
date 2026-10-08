@@ -1,8 +1,9 @@
 module p4c3;
 import std::io;
+import std::collections::list;
 
 fn Program*? parse_ok(String source) {
-	return parse_source(tmem, "test.p4", source);
+	return parse_source(tmem, "test.p4", source, null);
 }
 
 fn void parses_headers_and_structs() @test {
@@ -94,5 +95,45 @@ fn void parses_control_actions_tables() @test {
 fn void rejects_garbage() @test {
 	@pool() {
 		test::@error(parse_ok("this is not p4;"), PARSE_FAILED);
+	};
+}
+
+fn void preserves_lookahead_types_and_cast_precedence() @test {
+	@pool() {
+		Program* program = parse_ok(`
+			parser P(packet_in packet, out metadata_t m) {
+				state start {
+					m.word = packet.lookahead<bit<16>>();
+					m.header = packet.lookahead<ipv4_t>();
+					m.length = (bit<32>)m.word * 4;
+					m.shifted = m.word >> 2;
+					transition accept;
+				}
+			}
+		`)!!;
+		List{Stmt*} body = program.decls[0].states[0].body;
+		Expr* call = body[0].rhs;
+		test::eq(call.kind, ExprKind.CALL);
+		test::eq((int)call.type_args.len(), 1);
+		test::eq(call.type_args[0].kind, TypeKind.BIT);
+		test::eq((int)call.type_args[0].width, 16);
+		test::eq(body[1].rhs.type_args[0].name, "ipv4_t");
+		Expr* product = body[2].rhs;
+		test::eq(product.kind, ExprKind.BINARY);
+		test::eq(product.token.kind, TokenKind.STAR);
+		test::eq(product.kids[0].kind, ExprKind.CAST);
+		test::eq((int)product.kids[0].type.width, 32);
+		test::eq(body[3].rhs.token.kind, TokenKind.RSHIFT);
+	};
+}
+
+fn void rejects_incomplete_typed_calls_and_casts() @test {
+	@pool() {
+		test::@error(parse_ok(`control C() {
+			apply { x = packet.lookahead<bit<16>(); }
+		}`), PARSE_FAILED);
+		test::@error(parse_ok(`control C() {
+			apply { x = (bit<32>); }
+		}`), PARSE_FAILED);
 	};
 }

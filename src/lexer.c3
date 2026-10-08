@@ -1,8 +1,7 @@
 module p4c3;
-import std::io;
 import std::collections::list;
 
-excuse { PARSE_FAILED }
+excuse PARSE_FAILED;
 
 enum TokenKind {
 	END,
@@ -146,7 +145,9 @@ fn char Lexer.take(&self) {
 	return c;
 }
 
-fn void? Lexer.fail(&self, String msg) {
+// A macro so the inlined `return` satisfies definite-return analysis at
+// call sites in value-returning functions.
+macro void? Lexer.fail(&self, String msg) {
 	self.error_msg = msg;
 	self.error_line = self.line;
 	self.error_column = self.column;
@@ -191,12 +192,12 @@ fn void? Lexer.skip_trivia(&self) {
 }
 
 fn Token Lexer.make(&self, TokenKind kind, sz start, uint line, uint column) {
-	Token tok;
-	tok.kind = kind;
-	tok.text = self.source[start:self.pos - start];
-	tok.line = line;
-	tok.column = column;
-	return tok;
+	return {
+		.kind = kind,
+		.text = self.source[start:self.pos - start],
+		.line = line,
+		.column = column,
+	};
 }
 
 fn void Lexer.scan_ident(&self) {
@@ -283,18 +284,12 @@ fn void? Lexer.scan_string(&self) {
 		if (c == '\\' && !self.at_end()) self.take();
 	}
 	self.fail("unterminated string")!;
-	return PARSE_FAILED~;
 }
 
 fn Token? Lexer.scan_token(&self) {
 	self.skip_trivia()!;
 	if (self.at_end()) {
-		Token end;
-		end.kind = END;
-		end.text = "";
-		end.line = self.line;
-		end.column = self.column;
-		return end;
+		return { .kind = END, .text = "", .line = self.line, .column = self.column };
 	}
 	uint line = self.line;
 	uint column = self.column;
@@ -367,10 +362,6 @@ fn Token? Lexer.scan_token(&self) {
 				self.take();
 				return self.make(GE, start, line, column);
 			}
-			if (self.peek() == '>') {
-				self.take();
-				return self.make(RSHIFT, start, line, column);
-			}
 			return self.make(GT, start, line, column);
 		case '&':
 			if (self.peek() == '&') {
@@ -390,17 +381,15 @@ fn Token? Lexer.scan_token(&self) {
 			return self.make(PIPE, start, line, column);
 		default:
 			self.fail(string::tformat("unexpected character '%c'", c))!;
-			return PARSE_FAILED~;
+			unreachable("fail always faults");
 	}
 }
 
-fn List{Token}? tokenize(Allocator allocator, String source) {
-	Lexer lexer;
-	lexer.init(source);
+fn List{Token}? Lexer.tokenize(&self, Allocator allocator) {
 	List{Token} tokens;
 	tokens.init(allocator);
 	while (true) {
-		Token tok = lexer.scan_token()!;
+		Token tok = self.scan_token()!;
 		tokens.push(tok);
 		if (tok.kind == END) break;
 	}

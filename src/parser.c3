@@ -1,7 +1,15 @@
 module p4c3;
-import std::io;
 import std::io::file;
 import std::collections::list;
+
+struct ParseDiag {
+	String filename;
+	uint line;
+	uint column;
+	String msg;
+	Token error_tok;
+	bool has_tok;
+}
 
 struct Parser {
 	String filename;
@@ -13,13 +21,8 @@ struct Parser {
 	Token error_tok;
 }
 
-fn Parser parser_create(Allocator allocator, String filename, List{Token} tokens) {
-	Parser p;
-	p.filename = filename;
-	p.tokens = tokens;
-	p.pos = 0;
-	p.allocator = allocator;
-	return p;
+fn void Parser.init(&self, Allocator allocator, String filename, List{Token} tokens) {
+	*self = { .filename = filename, .tokens = tokens, .allocator = allocator };
 }
 
 fn Token Parser.peek(&self) {
@@ -47,7 +50,9 @@ fn bool Parser.check_kw(&self, String name) {
 	return self.peek().is_kw(name);
 }
 
-fn void? Parser.fail(&self, String msg) {
+// A macro so the inlined `return` satisfies definite-return analysis at
+// call sites in value-returning functions. Keeps the first error only.
+macro void? Parser.fail(&self, String msg) {
 	if (!self.had_error) {
 		self.had_error = true;
 		self.error_msg = msg;
@@ -56,10 +61,15 @@ fn void? Parser.fail(&self, String msg) {
 	return PARSE_FAILED~;
 }
 
-fn void Parser.report(&self) {
-	Token t = self.error_tok;
-	String got = t.kind == END ? "end of file" : (t.text.len ? t.text : t.kind.label());
-	io::eprintfn("%s:%d:%d: error: %s (got %s)", self.filename, t.line, t.column, self.error_msg, got);
+fn void Parser.fill_diag(&self, ParseDiag* diag) {
+	*diag = {
+		.filename = self.filename,
+		.line = self.error_tok.line,
+		.column = self.error_tok.column,
+		.msg = self.error_msg,
+		.error_tok = self.error_tok,
+		.has_tok = true,
+	};
 }
 
 fn void? Parser.expect(&self, TokenKind kind) {
@@ -78,6 +88,7 @@ fn Expr* Parser.new_expr(&self, ExprKind kind, Token token) {
 	Expr* expr = alloc::new(self.allocator, Expr);
 	expr.kind = kind;
 	expr.token = token;
+	expr.type_args.init(self.allocator);
 	expr.kids.init(self.allocator, 4);
 	return expr;
 }
@@ -131,9 +142,6 @@ fn void? Parser.skip_type_args(&self) {
 			depth++;
 		} else if (t.kind == GT) {
 			depth--;
-		} else if (t.kind == RSHIFT) {
-			depth -= 2;
-			if (depth < 0) self.fail("mismatched '>'")!;
 		}
 	}
 }
@@ -149,8 +157,6 @@ fn bool Parser.looks_like_call_type_args(&self) {
 			depth++;
 		} else if (t.kind == GT) {
 			depth--;
-		} else if (t.kind == RSHIFT) {
-			depth -= 2;
 		}
 		i++;
 	}
@@ -187,9 +193,14 @@ fn bool Parser.try_consume_type(&self) {
 	} else {
 		if (self.check(LT)) {
 			sz saved = self.pos;
+			bool saved_had_error = self.had_error;
+			String saved_error_msg = self.error_msg;
+			Token saved_error_tok = self.error_tok;
 			if (catch self.skip_type_args()) {
 				self.pos = saved;
-				self.had_error = false;
+				self.had_error = saved_had_error;
+				self.error_msg = saved_error_msg;
+				self.error_tok = saved_error_tok;
 				return false;
 			}
 		}
@@ -227,7 +238,14 @@ fn TypeRef? Parser.parse_type(&self) {
 		self.expect(LT)!;
 		if (!self.check(INTEGER)) self.fail("expected bit width")!;
 		Token w = self.advance();
-		ty.width = w.text.to_uint() ?? 0;
+		uint? parsed_width = w.text.to_uint();
+		if (catch parsed_width) {
+			self.fail(string::tformat("invalid bit width '%s'", w.text))!;
+			unreachable("fail always faults");
+		}
+		ty.width = parsed_width;
+		// The lexer keeps each '>' separate, so "bit<16>>" in a nested
+		// type-argument list closes here and the outer '>' remains.
 		self.expect(GT)!;
 	} else if (t.text == "bool") {
 		ty.kind = BOOL;
@@ -243,7 +261,12 @@ fn TypeRef? Parser.parse_type(&self) {
 		self.advance();
 		if (!self.check(INTEGER)) self.fail("expected stack size")!;
 		Token n = self.advance();
-		ty.stack_size = n.text.to_uint() ?? 0;
+		uint? parsed_size = n.text.to_uint();
+		if (catch parsed_size) {
+			self.fail(string::tformat("invalid stack size '%s'", n.text))!;
+			unreachable("fail always faults");
+		}
+		ty.stack_size = parsed_size;
 		self.expect(RBRACK)!;
 	}
 	return ty;
@@ -290,11 +313,11 @@ fn Expr*? Parser.parse_primary(&self) {
 			self.expect(RPAREN)!;
 			return tuple;
 		}
-		self.expect(RPAREN)!;
-		return first;
+			self.expect(RPAREN)!;
+			return first;
 	}
 	self.fail("expected expression")!;
-	return PARSE_FAILED~;
+	unreachable("fail always faults");
 }
 
 fn Expr*? Parser.parse_postfix(&self) {
@@ -319,8 +342,14 @@ fn Expr*? Parser.parse_postfix(&self) {
 			continue;
 		}
 		if (self.looks_like_call_type_args()) {
-			self.skip_type_args()!;
 			Expr* call = self.new_expr(CALL, expr.token);
+			self.expect(LT)!;
+			while (true) {
+				call.type_args.push(self.parse_type()!);
+				if (!self.check(COMMA)) break;
+				self.advance();
+			}
+			self.expect(GT)!;
 			call.kids.push(expr);
 			expr = self.parse_args(call)!;
 			continue;
@@ -338,6 +367,17 @@ fn Expr*? Parser.parse_postfix(&self) {
 
 fn Expr*? Parser.parse_unary(&self) {
 	Token t = self.peek();
+	// Only builtin casts are unambiguous without a symbol table. Named-type
+	// casts remain unsupported; do not mistake a parenthesized name for one.
+	if (t.kind == LPAREN && (self.peek_at(1).is_kw("bit")
+		|| self.peek_at(1).is_kw("int") || self.peek_at(1).is_kw("bool"))) {
+		self.advance();
+		Expr* expr = self.new_expr(CAST, t);
+		expr.type = self.parse_type()!;
+		self.expect(RPAREN)!;
+		expr.kids.push(self.parse_unary()!);
+		return expr;
+	}
 	if (t.kind == BANG || t.kind == TILDE || t.kind == MINUS || t.kind == PLUS) {
 		self.advance();
 		Expr* expr = self.new_expr(UNARY, t);
@@ -347,11 +387,23 @@ fn Expr*? Parser.parse_unary(&self) {
 	return self.parse_postfix();
 }
 
+// The lexer keeps each '>' as a separate token so type contexts can close
+// nested lists ("bit<16>>"). Report a source-adjacent pair as a right shift
+// when reading a binary operator; parse_binop consumes two tokens for it.
+fn Token Parser.scan_op(&self) {
+	Token op = self.peek();
+	if (op.kind == GT && self.peek_at(1).kind == GT
+		&& self.peek_at(1).line == op.line && self.peek_at(1).column == op.column + 1) {
+		return { .kind = RSHIFT, .text = ">>", .line = op.line, .column = op.column };
+	}
+	return op;
+}
+
 fn Expr*? Parser.parse_binop(&self, int prec) {
 	if (prec == 0) return self.parse_unary();
 	Expr* left = self.parse_binop(prec - 1)!;
 	while (true) {
-		Token op = self.peek();
+		Token op = self.scan_op();
 		int p = -1;
 		switch (op.kind) {
 			case STAR:
@@ -389,6 +441,7 @@ fn Expr*? Parser.parse_binop(&self, int prec) {
 		}
 		if (p != prec) break;
 		self.advance();
+		if (op.kind == RSHIFT) self.advance();
 		Expr* right = self.parse_binop(prec - 1)!;
 		Expr* bin = self.new_expr(BINARY, op);
 		bin.kids.push(left);
@@ -746,9 +799,6 @@ fn Decl*? Parser.parse_parser_decl(&self) {
 	self.skip_type_args()!;
 	Decl* decl = self.new_decl(PARSER, name);
 	self.parse_param_list(&decl.params)!;
-	if (self.check(LT) || self.check_kw("transition")) {
-		// optional constructor / no-op
-	}
 	self.expect(LBRACE)!;
 	while (!self.check(RBRACE) && !self.check(END)) {
 		self.skip_annotations()!;
@@ -920,26 +970,33 @@ fn Program*? Parser.parse_program(&self) {
 	return program;
 }
 
-fn Program*? parse_source(Allocator allocator, String filename, String source) {
-	List{Token} tokens = tokenize(allocator, source)!;
-	Parser parser = parser_create(allocator, filename, tokens);
+fn Program*? parse_source(Allocator allocator, String filename, String source, ParseDiag* diag) {
+	Lexer lexer;
+	lexer.init(source);
+	List{Token}? tokens = lexer.tokenize(allocator);
+	if (catch err = tokens) {
+		if (diag) {
+			*diag = {
+				.filename = filename,
+				.line = lexer.error_line,
+				.column = lexer.error_column,
+				.msg = lexer.error_msg,
+			};
+		}
+		return err~;
+	}
+	Parser parser;
+	parser.init(allocator, filename, tokens);
 	Program*? program = parser.parse_program();
 	if (catch err = program) {
-		if (parser.had_error) {
-			parser.report();
-		} else {
-			io::eprintfn("%s: error: %s", filename, err);
-		}
+		if (diag) parser.fill_diag(diag);
 		return err~;
 	}
 	return program;
 }
 
-fn Program*? parse_file(Allocator allocator, String path) {
+fn Program*? parse_file(Allocator allocator, String path, ParseDiag* diag) {
 	char[]? data = file::load(allocator, path);
-	if (catch err = data) {
-		io::eprintfn("error: cannot read %s: %s", path, err);
-		return err~;
-	}
-	return parse_source(allocator, path, (String)data);
+	if (catch err = data) return err~;
+	return parse_source(allocator, path, (String)data, diag);
 }

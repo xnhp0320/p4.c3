@@ -1,0 +1,13 @@
+Upstream header SHA256: 09f99c1378e2fec31a2715d162e601a6797352938e55cfd608209d68b44c8f6d
+Mode: extracted helpers; reduced fixture types; ASan + UBSan; no benchmark
+parser helpers     lookahead, varbit, validity: OK; short length wraps to 4294967294
+unchanged ABC      spans=1 offset=32 length=24 memcpy_calls=0 memcpy_bytes=0
+prefix drop BC     spans=1 offset=36 length=20 memcpy_calls=0 memcpy_bytes=0
+middle drop AC     spans=2 offset=40 length=16 memcpy_calls=3 memcpy_bytes=16
+suffix drop AB     spans=1 offset=36 length=20 memcpy_calls=2 memcpy_bytes=24
+prepend XABC       spans=2 offset=28 length=28 memcpy_calls=1 memcpy_bytes=4
+insert AXBC        spans=3 offset=28 length=28 memcpy_calls=4 memcpy_bytes=40
+reorder BAC        spans=3 offset=32 length=24 memcpy_calls=4 memcpy_bytes=32
+payload only       spans=0 offset=48 length=8 memcpy_calls=0 memcpy_bytes=0
+deferred emit      emit A; mutate A; emit A => both outputs contain new bytes
+All helper-level assertions passed.
