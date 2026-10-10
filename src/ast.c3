@@ -27,6 +27,7 @@ struct ParamDecl {
 struct FieldDecl {
 	TypeRef type;
 	String name;
+	Token token;
 }
 
 enum ExprKind {
@@ -91,6 +92,7 @@ struct Transition {
 
 struct ParserState {
 	String name;
+	Token token;
 	List{Stmt*} body;
 	Transition transition;
 }
@@ -108,6 +110,7 @@ struct ActionRef {
 
 struct TableDecl {
 	String name;
+	Token token;
 	List{KeyElem} keys;
 	List{ActionRef} actions;
 	Expr* size;
@@ -136,6 +139,7 @@ enum DeclKind {
 struct Decl {
 	DeclKind kind;
 	String name;
+	Token token;
 	TypeRef type;
 	Expr* value;
 	List{FieldDecl} fields;

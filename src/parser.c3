@@ -484,6 +484,7 @@ fn void? Parser.parse_field_list(&self, List{FieldDecl}* fields) {
 		if (self.check(RBRACE)) break;
 		FieldDecl field;
 		field.type = self.parse_type()!;
+		field.token = self.peek();
 		field.name = self.expect_ident()!;
 		self.expect(SEMI)!;
 		fields.push(field);
@@ -600,6 +601,7 @@ fn ParserState? Parser.parse_state(&self) {
 	ParserState state;
 	state.body.init(self.allocator);
 	self.advance(); // state
+	state.token = self.peek();
 	state.name = self.expect_ident()!;
 	self.expect(LBRACE)!;
 	while (!self.check(RBRACE) && !self.check(END)) {
@@ -648,6 +650,7 @@ fn TableDecl? Parser.parse_table(&self) {
 	table.keys.init(self.allocator);
 	table.actions.init(self.allocator);
 	self.advance(); // table
+	table.token = self.peek();
 	table.name = self.expect_ident()!;
 	self.expect(LBRACE)!;
 	while (!self.check(RBRACE) && !self.check(END)) {
@@ -737,9 +740,11 @@ fn TableDecl? Parser.parse_table(&self) {
 
 fn Decl*? Parser.parse_header_like(&self, DeclKind kind) {
 	self.advance();
+	Token name_tok = self.peek();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
 	Decl* decl = self.new_decl(kind, name);
+	decl.token = name_tok;
 	self.parse_field_list(&decl.fields)!;
 	return decl;
 }
@@ -795,9 +800,11 @@ fn Decl*? Parser.parse_enum(&self) {
 
 fn Decl*? Parser.parse_parser_decl(&self) {
 	self.advance();
+	Token name_tok = self.peek();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
 	Decl* decl = self.new_decl(PARSER, name);
+	decl.token = name_tok;
 	self.parse_param_list(&decl.params)!;
 	self.expect(LBRACE)!;
 	while (!self.check(RBRACE) && !self.check(END)) {
@@ -823,9 +830,11 @@ fn Decl*? Parser.parse_parser_decl(&self) {
 
 fn Decl*? Parser.parse_control_decl(&self) {
 	self.advance();
+	Token name_tok = self.peek();
 	String name = self.expect_ident()!;
 	self.skip_type_args()!;
 	Decl* decl = self.new_decl(CONTROL, name);
+	decl.token = name_tok;
 	self.parse_param_list(&decl.params)!;
 	self.expect(LBRACE)!;
 	bool saw_apply = false;

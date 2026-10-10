@@ -2,9 +2,12 @@
 
 A work-in-progress **P4-to-C code generator** written in [C3](https://c3-lang.org), targeting DPDK. Its current implementation lexes and parses a small, usable subset of P4_16. The project aims to generate efficient C for custom packet formats, parsing, and packet construction, with future P4 extensions; a direct C3 backend is also under consideration. A lightweight frontend is the current preference, while reuse of the official p4c remains an option.
 
-This is a parser only. There is no type checker, no full P4 toolchain, and no code generator yet.
+This is a parser plus a v0 reference interpreter. There is no type checker beyond
+the v0 subset validation, no full P4 toolchain, and no code generator yet.
 
 See [the project motivation, goals, and intended deliverables](docs/project-vision.md).
+The agreed v0 language subset, the `extract_end` extension, and the first-phase
+implementation order are drafted in [docs/v0-subset.md](docs/v0-subset.md).
 
 Research notes: [existing C/uBPF and DPDK backends](docs/codegen-research.md),
 [parser/deparser code generation challenges](docs/parser-deparser-challenges.md),
@@ -60,6 +63,22 @@ ok: parsed samples/simple.p4 (7 declarations)
 
 A syntax error is reported as `file:line:column: error: ...` and the process exits with status 1.
 
+### v0 reference model
+
+`docs/v0-subset.md` §5 step 1 is implemented: a slow but obviously correct
+interpreter (the differential-testing oracle) plus the v0 subset validator.
+
+```bash
+./build/p4c3 runref <file.p4> <packet-hex>
+```
+
+The program must contain a parser and a deparser (a control with a `packet_out`
+parameter) and stay inside the v0 subset; violations are reported as
+`file:line:column: error: ...` with exit status 2. On success the tool prints
+`reject` (short packet or explicit reject) or the reference output bytes as
+hex. See `test/refmodel_test.c3` for executable examples of the pinned
+semantic points.
+
 ## Tests
 
 ```bash
@@ -110,7 +129,7 @@ Official C3 project layout (`c3c init`):
 | Path | Role |
 | --- | --- |
 | `project.json` | Build config and `p4c3` executable target |
-| `src/` | Lexer, AST, parser, dump, CLI |
+| `src/` | Lexer, AST, parser, dump, v0 subset validator + reference interpreter, CLI |
 | `samples/simple.p4` | Sample the parser can actually parse |
 | `test/` | Unit tests for the subset |
 
