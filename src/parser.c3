@@ -175,8 +175,7 @@ fn void? Parser.skip_annotations(&self) {
 fn bool Parser.at_type_name(&self) {
     if (!self.check(IDENT)) return false;
     String s = self.peek().text;
-    return s == "bit" || s == "int" || s == "varbit" || s == "bool"
-        || s == "void" || s == "error" || s == "string";
+    return s == "bit" || s == "int" || s == "varbit" || s == "bool" || s == "void" || s == "error" || s == "string";
 }
 
 fn bool Parser.try_consume_type(&self) {
@@ -313,8 +312,8 @@ fn Expr*? Parser.parse_primary(&self) {
             self.expect(RPAREN)!;
             return tuple;
         }
-            self.expect(RPAREN)!;
-            return first;
+        self.expect(RPAREN)!;
+        return first;
     }
     self.fail("expected expression")!;
     unreachable("fail always faults");
@@ -369,8 +368,8 @@ fn Expr*? Parser.parse_unary(&self) {
     Token t = self.peek();
     // Only builtin casts are unambiguous without a symbol table. Named-type
     // casts remain unsupported; do not mistake a parenthesized name for one.
-    if (t.kind == LPAREN && (self.peek_at(1).is_kw("bit")
-        || self.peek_at(1).is_kw("int") || self.peek_at(1).is_kw("bool"))) {
+    if (t.kind == LPAREN && (self.peek_at(1)
+        .is_kw("bit") || self.peek_at(1).is_kw("int") || self.peek_at(1).is_kw("bool"))) {
         self.advance();
         Expr* expr = self.new_expr(CAST, t);
         expr.type = self.parse_type()!;
@@ -392,8 +391,8 @@ fn Expr*? Parser.parse_unary(&self) {
 // when reading a binary operator; parse_binop consumes two tokens for it.
 fn Token Parser.scan_op(&self) {
     Token op = self.peek();
-    if (op.kind == GT && self.peek_at(1).kind == GT
-        && self.peek_at(1).line == op.line && self.peek_at(1).column == op.column + 1) {
+    if (op.kind == GT && self.peek_at(1)
+        .kind == GT && self.peek_at(1).line == op.line && self.peek_at(1).column == op.column + 1) {
         return { .kind = RSHIFT, .text = ">>", .line = op.line, .column = op.column };
     }
     return op;
@@ -959,8 +958,9 @@ fn Program*? Parser.parse_program(&self) {
             program.decls.push(self.parse_top_table()!);
             continue;
         }
-        if (self.check_kw("extern") || self.check_kw("error") || self.check_kw("match_kind")
-            || self.check_kw("package")) {
+        if (self.check_kw(
+            "extern"
+        ) || self.check_kw("error") || self.check_kw("match_kind") || self.check_kw("package")) {
             self.skip_extern_or_error()!;
             continue;
         }

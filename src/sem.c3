@@ -112,7 +112,7 @@ fn Decl*? TypeIndex.find_parser_state(&self, Decl* parser, String name) {
 excuse NOT_FOUND;
 
 // ---- Layout helpers -----------------------------------------------------
-//
+// 
 // v0 is byte-oriented: header fixed size and field offsets are whole bytes.
 
 // Fixed size in bytes: sum of bit<W> fields / 8. varbit fields contribute 0.
@@ -188,8 +188,7 @@ fn void SubsetChecker.check_program(&self, Program* program) {
                 self.check_control(d);
             case ACTION:
             case TABLE:
-                self.diags.add(d.token,
-                    string::tformat("'%s': actions and tables are outside the v0 subset", d.name));
+                self.diags.add(d.token, string::tformat("'%s': actions and tables are outside the v0 subset", d.name));
             default:
         }
     }
@@ -199,16 +198,27 @@ fn void SubsetChecker.check_header(&self, Decl* header) {
     foreach (f : header.fields) {
         if (f.type.kind == TypeKind.BIT) {
             if (f.type.width == 0 || f.type.width % 8 != 0) {
-                self.diags.add(f.token,
-                    string::tformat("header '%s': field '%s' bit<%d> is not byte-aligned, v0 requires widths that are multiples of 8",
-                        header.name, f.name, f.type.width));
+                self.diags.add(
+                    f.token,
+                    string::tformat(
+                        "header '%s': field '%s' bit<%d> is not byte-aligned, v0 requires widths that are multiples of 8",
+                        header.name,
+                        f.name,
+                        f.type.width
+                    )
+                );
             }
             continue;
         }
         if (f.type.kind == TypeKind.VARBIT) continue;
-        self.diags.add(f.token,
-            string::tformat("header '%s': field '%s' has unsupported type, v0 headers allow only bit<W> (W multiple of 8) and varbit<W>",
-                header.name, f.name));
+        self.diags.add(
+            f.token,
+            string::tformat(
+                "header '%s': field '%s' has unsupported type, v0 headers allow only bit<W> (W multiple of 8) and varbit<W>",
+                header.name,
+                f.name
+            )
+        );
     }
 }
 
@@ -216,9 +226,14 @@ fn void SubsetChecker.check_struct(&self, Decl* struct_decl) {
     foreach (f : struct_decl.fields) {
         if (f.type.kind == TypeKind.NAME) continue;
         if (f.type.kind == TypeKind.BIT && f.type.width % 8 == 0) continue;
-        self.diags.add(f.token,
-            string::tformat("struct '%s': member '%s' has type outside the v0 subset (only byte-aligned bit<W> and header instances)",
-                struct_decl.name, f.name));
+        self.diags.add(
+            f.token,
+            string::tformat(
+                "struct '%s': member '%s' has type outside the v0 subset (only byte-aligned bit<W> and header instances)",
+                struct_decl.name,
+                f.name
+            )
+        );
     }
 }
 
@@ -257,12 +272,11 @@ fn bool parser_call_allowed(Expr* call) {
     Expr* callee = call.kids[0];
     if (callee.kind != ExprKind.MEMBER) return false;
     String m = callee.token.text;
-    return m == "extract" || m == "extract_end" || m == "lookahead"
-        || m == "setValid" || m == "setInvalid" || m == "isValid";
+    return m == "extract" || m == "extract_end" || m == "lookahead" || m == "setValid" || m == "setInvalid"
+        || m == "isValid";
 }
 
-fn void SubsetChecker.check_stmt_list(&self, List{Stmt*}* body, bool in_deparser,
-    Decl* control) {
+fn void SubsetChecker.check_stmt_list(&self, List{Stmt*}* body, bool in_deparser, Decl* control) {
     foreach (s : *body) {
         self.check_stmt(s, in_deparser, control);
     }
@@ -289,25 +303,39 @@ fn void SubsetChecker.check_stmt(&self, Stmt* stmt, bool in_deparser, Decl* cont
                     if (in_deparser) {
                         self.check_emit_call(e, control);
                     } else if (!parser_call_allowed(e)) {
-                        self.diags.add(e.token,
-                            string::tformat("control '%s': only packet.extract/extract_end/lookahead and header setValid/setInvalid/isValid calls are in the v0 subset", control.name));
+                        self.diags.add(
+                            e.token,
+                            string::tformat(
+                                "control '%s': only packet.extract/extract_end/lookahead and header setValid/setInvalid/isValid calls are in the v0 subset",
+                                control.name
+                            )
+                        );
                     }
                 }
             }
         case RETURN:
-            if (in_deparser) self.diags.add(stmt_token(stmt),
-                string::tformat("deparser '%s': return is outside the v0 deparser subset (straight-line emit sequence)", control.name));
+            if (in_deparser) self.diags.add(
+                stmt_token(stmt),
+                string::tformat(
+                    "deparser '%s': return is outside the v0 deparser subset (straight-line emit sequence)",
+                    control.name
+                )
+            );
         case EXIT:
-            self.diags.add(stmt_token(stmt),
-                string::tformat("'%s': exit is outside the v0 subset", control.name));
+            self.diags.add(stmt_token(stmt), string::tformat("'%s': exit is outside the v0 subset", control.name));
     }
 }
 
 fn void SubsetChecker.check_emit_call(&self, Expr* call, Decl* control) {
     Expr* callee = call.kids[0];
     if (callee.kind != ExprKind.MEMBER || callee.token.text != "emit") {
-        self.diags.add(call.token,
-            string::tformat("deparser '%s': only emit calls, guarded emits, and assignments are allowed in the v0 deparser", control.name));
+        self.diags.add(
+            call.token,
+            string::tformat(
+                "deparser '%s': only emit calls, guarded emits, and assignments are allowed in the v0 deparser",
+                control.name
+            )
+        );
         return;
     }
     if (call.kids.len() != 2) {
@@ -321,8 +349,14 @@ fn void SubsetChecker.check_emit_call(&self, Expr* call, Decl* control) {
     String key = (String)path.array_view();
     foreach (prev : self.emitted) {
         if (prev == key) {
-            self.diags.add(call.token,
-                string::tformat("deparser '%s': instance '%s' is emitted more than once, which requires value-version modeling outside the v0 subset", control.name, key));
+            self.diags.add(
+                call.token,
+                string::tformat(
+                    "deparser '%s': instance '%s' is emitted more than once, which requires value-version modeling outside the v0 subset",
+                    control.name,
+                    key
+                )
+            );
             return;
         }
     }
@@ -340,8 +374,10 @@ fn void SubsetChecker.check_control(&self, Decl* control) {
     bool deparser = control_is_deparser(self.idx, control);
     if (deparser) self.emitted.clear();
     foreach (t : control.tables) {
-        self.diags.add(t.token,
-            string::tformat("control '%s': table '%s' is outside the v0 subset", control.name, t.name));
+        self.diags.add(
+            t.token,
+            string::tformat("control '%s': table '%s' is outside the v0 subset", control.name, t.name)
+        );
     }
     self.check_stmt_list(&control.apply, deparser, control);
 }
@@ -357,8 +393,10 @@ fn void SubsetChecker.check_parser(&self, Decl* parser) {
                 if (t != "accept" && t != "reject") {
                     bool found = false;
                     foreach (other : parser.states) if (other.name == t) found = true;
-                    if (!found) self.diags.add(state.token,
-                        string::tformat("parser '%s': transition to undefined state '%s'", parser.name, t));
+                    if (!found) self.diags.add(
+                        state.token,
+                        string::tformat("parser '%s': transition to undefined state '%s'", parser.name, t)
+                    );
                 }
             case SELECT:
                 foreach (c : state.transition.cases) {
@@ -366,12 +404,16 @@ fn void SubsetChecker.check_parser(&self, Decl* parser) {
                     bool found = false;
                     foreach (other : parser.states) if (other.name == c.target) found = true;
                     if (c.target == "accept" || c.target == "reject") found = true;
-                    if (!found) self.diags.add(state.token,
-                        string::tformat("parser '%s': select case to undefined state '%s'", parser.name, c.target));
+                    if (!found) self.diags.add(
+                        state.token,
+                        string::tformat("parser '%s': select case to undefined state '%s'", parser.name, c.target)
+                    );
                 }
             default:
-                self.diags.add(state.token,
-                    string::tformat("parser '%s': state '%s' has no transition", parser.name, state.name));
+                self.diags.add(
+                    state.token,
+                    string::tformat("parser '%s': state '%s' has no transition", parser.name, state.name)
+                );
         }
     }
 }

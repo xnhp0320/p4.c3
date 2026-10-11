@@ -63,12 +63,9 @@ fn void parses_ovs_model_with_closed_state_graph_and_wire_layouts() @test {
         test::eq(ovs_test_header_bits(program, "nsh_t"), 64);
         test::eq(ovs_test_header_bits(program, "nsh_context_t"), 128);
         // These backedges must survive; finite unrolling changes the contract.
-        test::eq(parser.states[ovs_test_state(parser, "vlan")].transition.target,
-            "vlan_check");
-        test::eq(parser.states[ovs_test_state(parser, "ipv6_ext")].transition.target,
-            "ipv6_dispatch");
-        test::eq(parser.states[ovs_test_state(parser, "nd_advance")].transition.target,
-            "nd_option_check");
+        test::eq(parser.states[ovs_test_state(parser, "vlan")].transition.target, "vlan_check");
+        test::eq(parser.states[ovs_test_state(parser, "ipv6_ext")].transition.target, "ipv6_dispatch");
+        test::eq(parser.states[ovs_test_state(parser, "nd_advance")].transition.target, "nd_option_check");
         ParserState mpls = parser.states[ovs_test_state(parser, "mpls")];
         test::eq(mpls.transition.cases[0].target, "mpls_check");
     };

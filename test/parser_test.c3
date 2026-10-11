@@ -8,7 +8,8 @@ fn Program*? parse_ok(String source) {
 
 fn void parses_headers_and_structs() @test {
     @pool() {
-        Program* program = parse_ok(`
+        Program* program = parse_ok(
+            `
             header ethernet_t {
                 bit<48> dst_addr;
                 bit<48> src_addr;
@@ -17,7 +18,8 @@ fn void parses_headers_and_structs() @test {
             struct headers_t {
                 ethernet_t ethernet;
             }
-        `)!!;
+        `
+        )!!;
         test::eq((int)program.decls.len(), 2);
         test::eq(program.decls[0].kind, DeclKind.HEADER);
         test::eq(program.decls[0].name, "ethernet_t");
@@ -31,7 +33,8 @@ fn void parses_headers_and_structs() @test {
 
 fn void parses_parser_states() @test {
     @pool() {
-        Program* program = parse_ok(`
+        Program* program = parse_ok(
+            `
             parser P(packet_in packet, out headers_t hdr) {
                 state start {
                     packet.extract(hdr.ethernet);
@@ -41,7 +44,8 @@ fn void parses_parser_states() @test {
                     }
                 }
             }
-        `)!!;
+        `
+        )!!;
         test::eq((int)program.decls.len(), 1);
         test::eq(program.decls[0].kind, DeclKind.PARSER);
         test::eq((int)program.decls[0].states.len(), 1);
@@ -54,7 +58,8 @@ fn void parses_parser_states() @test {
 
 fn void parses_control_actions_tables() @test {
     @pool() {
-        Program* program = parse_ok(`
+        Program* program = parse_ok(
+            `
             control Ingress(inout headers_t hdr, inout metadata_t meta) {
                 action drop() {
                     meta.drop = 1;
@@ -77,7 +82,8 @@ fn void parses_control_actions_tables() @test {
                     dmac.apply();
                 }
             }
-        `)!!;
+        `
+        )!!;
         test::eq((int)program.decls.len(), 1);
         Decl* c = program.decls[0];
         test::eq(c.kind, DeclKind.CONTROL);
@@ -100,7 +106,8 @@ fn void rejects_garbage() @test {
 
 fn void preserves_lookahead_types_and_cast_precedence() @test {
     @pool() {
-        Program* program = parse_ok(`
+        Program* program = parse_ok(
+            `
             parser P(packet_in packet, out metadata_t m) {
                 state start {
                     m.word = packet.lookahead<bit<16>>();
@@ -110,7 +117,8 @@ fn void preserves_lookahead_types_and_cast_precedence() @test {
                     transition accept;
                 }
             }
-        `)!!;
+        `
+        )!!;
         List{Stmt*} body = program.decls[0].states[0].body;
         Expr* call = body[0].rhs;
         test::eq(call.kind, ExprKind.CALL);
@@ -129,9 +137,12 @@ fn void preserves_lookahead_types_and_cast_precedence() @test {
 
 fn void rejects_incomplete_typed_calls_and_casts() @test {
     @pool() {
-        test::@error(parse_ok(`control C() {
+        test::@error(
+            parse_ok(`control C() {
             apply { x = packet.lookahead<bit<16>(); }
-        }`), PARSE_FAILED);
+        }`),
+            PARSE_FAILED
+        );
         test::@error(parse_ok(`control C() {
             apply { x = (bit<32>); }
         }`), PARSE_FAILED);

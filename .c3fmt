@@ -1,0 +1,8 @@
+use_tabs: false
+indent_width: 4
+brace_style: K&R
+newline_at_eof: true
+align_assignments: false
+align_comments: false
+max_line_length: 120
+max_blank_line_between_statements: 2

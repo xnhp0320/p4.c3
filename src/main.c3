@@ -5,9 +5,8 @@ import std::collections::list;
 
 fn void report_error(String path, ParseDiag* diag, fault err) {
     if (err == PARSE_FAILED) {
-        String got = diag.has_tok
-            ? (diag.error_tok.kind == END ? "end of file"
-                : (diag.error_tok.text.len ? diag.error_tok.text : diag.error_tok.kind.label()))
+        String got = diag.has_tok ? (diag.error_tok.kind == END ? "end of file"
+            : (diag.error_tok.text.len ? diag.error_tok.text : diag.error_tok.kind.label()))
             : "";
         io::eprintfn("%s:%d:%d: error: %s (got %s)", diag.filename, diag.line, diag.column, diag.msg, got);
     } else {
@@ -65,8 +64,12 @@ fn int cmd_dump(String path) {
             status = 1;
         } else {
             dump_program(program);
-            io::printfn("ok: parsed %s (%d declaration%s)", path, program.decls.len(),
-                program.decls.len() == 1 ? "" : "s");
+            io::printfn(
+                "ok: parsed %s (%d declaration%s)",
+                path,
+                program.decls.len(),
+                program.decls.len() == 1 ? "" : "s"
+            );
         }
     };
     return status;

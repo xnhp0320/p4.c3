@@ -14,8 +14,11 @@ fn void run_fixture(String name, String p4src, String pkt_hex, String expected) 
         ParseDiag diag;
         Program*? program = parse_source(tmem, string::tformat("%s.p4", name), p4src, &diag);
         if (catch err = program) {
-            test::@check(false, "%s", string::tformat("%s: parse error %s:%d:%d: %s", name, diag.filename,
-                diag.line, diag.column, diag.msg));
+            test::@check(
+                false,
+                "%s",
+                string::tformat("%s: parse error %s:%d:%d: %s", name, diag.filename, diag.line, diag.column, diag.msg)
+            );
             return;
         }
         TypeIndex idx;
@@ -28,7 +31,11 @@ fn void run_fixture(String name, String p4src, String pkt_hex, String expected) 
         checker.emitted.init(tmem);
         checker.check_program(program);
         if (diags.has_errors()) {
-            test::@check(false, "%s", string::tformat("%s: unexpected subset diagnostic: %s", name, diags.items[0].msg));
+            test::@check(
+                false,
+                "%s",
+                string::tformat("%s: unexpected subset diagnostic: %s", name, diags.items[0].msg)
+            );
         }
         char[]? packet = parse_hex(tmem, pkt_hex);
         if (catch packet) {
@@ -65,7 +72,11 @@ fn void expect_subset_error(String name, String p4src, String want_substring) {
         foreach (d : diags.items) {
             if (d.msg.contains(want_substring)) found = true;
         }
-        test::@check(found, "%s", string::tformat("%s: no diagnostic containing '%s', got '%s'", name, want_substring, diags.items[0].msg));
+        test::@check(
+            found,
+            "%s",
+            string::tformat("%s: no diagnostic containing '%s', got '%s'", name, want_substring, diags.items[0].msg)
+        );
     };
 }
 
@@ -87,8 +98,12 @@ fn void fixed_header_emit_and_payload() @test {
         }
     `;
     // ether(dst=010203040506 src=0708090a0b0c et=0800) + payload "payload"
-    run_fixture("fixed_basic", p4, "0102030405060708090a0b0c08007061796c6f6164",
-        "0102030405060708090a0b0c08007061796c6f6164");
+    run_fixture(
+        "fixed_basic",
+        p4,
+        "0102030405060708090a0b0c08007061796c6f6164",
+        "0102030405060708090a0b0c08007061796c6f6164"
+    );
     // payload anchored at parser cursor: emitting only part of what was parsed
     // still leaves the unconsumed tail in place.
     String p4_partial = `
@@ -107,8 +122,7 @@ fn void fixed_header_emit_and_payload() @test {
         }
     `;
     // Parser consumed only the 14 ether bytes; ip bytes are payload.
-    run_fixture("payload_anchor", p4_partial, "0102030405060708090a0b0c0800aabb",
-        "0102030405060708090a0b0c0800aabb");
+    run_fixture("payload_anchor", p4_partial, "0102030405060708090a0b0c0800aabb", "0102030405060708090a0b0c0800aabb");
 }
 
 // ---- Point 1: guards and implicit validity (valid ∧ guard) ----------------
@@ -152,17 +166,26 @@ fn void guard_and_implicit_validity() @test {
         }
     `;
     // No vlan: emit(hdr.vlan) on invalid header is a no-op (implicit validity).
-    run_fixture("guard_novlan", GUARD_P4.tconcat(dep),
+    run_fixture(
+        "guard_novlan",
+        GUARD_P4.tconcat(dep),
         "0102030405060708090a0b0c0800aabbccdd7879",
-        "0102030405060708090a0b0c0800aabbccdd7879");
+        "0102030405060708090a0b0c0800aabbccdd7879"
+    );
     // Guard false (ip.c == 0): ip dropped, payload follows ether.
-    run_fixture("guard_drop", GUARD_P4.tconcat(dep),
+    run_fixture(
+        "guard_drop",
+        GUARD_P4.tconcat(dep),
         "0102030405060708090a0b0c0800aabb00dd7879",
-        "0102030405060708090a0b0c08007879");
+        "0102030405060708090a0b0c08007879"
+    );
     // Vlan present and guard true: full reconstruction.
-    run_fixture("guard_vlan", GUARD_P4.tconcat(dep),
+    run_fixture(
+        "guard_vlan",
+        GUARD_P4.tconcat(dep),
         "0102030405060708090a0b0c810000640800aa11ccdd7879",
-        "0102030405060708090a0b0c810000640800aa11ccdd7879");
+        "0102030405060708090a0b0c810000640800aa11ccdd7879"
+    );
 }
 
 fn void redundant_isvalid_guard_folds_to_validity() @test {
@@ -177,12 +200,18 @@ fn void redundant_isvalid_guard_folds_to_validity() @test {
             }
         }
     `;
-    run_fixture("fold_novlan", GUARD_P4.tconcat(dep),
+    run_fixture(
+        "fold_novlan",
+        GUARD_P4.tconcat(dep),
         "0102030405060708090a0b0c0800aabbccdd7879",
-        "0102030405060708090a0b0c0800aabbccdd7879");
-    run_fixture("fold_vlan", GUARD_P4.tconcat(dep),
+        "0102030405060708090a0b0c0800aabbccdd7879"
+    );
+    run_fixture(
+        "fold_vlan",
+        GUARD_P4.tconcat(dep),
         "0102030405060708090a0b0c810000640800aa11ccdd7879",
-        "0102030405060708090a0b0c810000640800aa11ccdd7879");
+        "0102030405060708090a0b0c810000640800aa11ccdd7879"
+    );
 }
 
 // ---- Point 2: loop parsing, last-value-survives ----------------------------
@@ -248,8 +277,7 @@ fn void extract_end_contiguous_view_form() @test {
     // TLV(1,len=2,"ab") then TLV(0,len=1,"z"); lookahead keeps the appends
     // adjacent, so the accumulated region is the whole 7-byte prefix.
     String pkt = "0102616200017a7879";
-    run_fixture("extract_end_view", EXTRACT_END_VIEW_P4, pkt,
-        "0102616200017a7879");
+    run_fixture("extract_end_view", EXTRACT_END_VIEW_P4, pkt, "0102616200017a7879");
 }
 
 const String EXTRACT_END_GATHER_P4 = `
@@ -399,7 +427,9 @@ fn void stack_emit_with_invalidated_element_leaves_no_hole() @test {
 
 fn void subset_diagnostics() @test {
     // Non-byte-aligned header field.
-    expect_subset_error("diag_align", `
+    expect_subset_error(
+        "diag_align",
+        `
         header bad_t { bit<12> x; }
         struct headers_t { bad_t b; }
         struct metadata_t { bit<8> m; }
@@ -409,9 +439,13 @@ fn void subset_diagnostics() @test {
         control Dep(in headers_t hdr, packet_out pkt) {
             apply { }
         }
-    `, "not byte-aligned");
+    `,
+        "not byte-aligned"
+    );
     // Tables are outside the v0 subset.
-    expect_subset_error("diag_table", `
+    expect_subset_error(
+        "diag_table",
+        `
         header ether_t { bit<8> a; }
         struct headers_t { ether_t e; }
         struct metadata_t { bit<8> m; }
@@ -425,9 +459,13 @@ fn void subset_diagnostics() @test {
         control Dep(in headers_t hdr, packet_out pkt) {
             apply { pkt.emit(hdr.e); }
         }
-    `, "outside the v0 subset");
+    `,
+        "outside the v0 subset"
+    );
     // Duplicate emit of the same instance.
-    expect_subset_error("diag_dup_emit", `
+    expect_subset_error(
+        "diag_dup_emit",
+        `
         header ether_t { bit<8> a; }
         struct headers_t { ether_t e; }
         struct metadata_t { bit<8> m; }
@@ -437,5 +475,7 @@ fn void subset_diagnostics() @test {
         control Dep(in headers_t hdr, packet_out pkt) {
             apply { pkt.emit(hdr.e); pkt.emit(hdr.e); }
         }
-    `, "emitted more than once");
+    `,
+        "emitted more than once"
+    );
 }

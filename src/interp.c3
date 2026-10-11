@@ -4,7 +4,7 @@ import std::collections::list;
 // Reference model for the v0 subset (docs/v0-subset.md §4): a slow but
 // obviously correct interpreter. It is the executable definition of v0
 // semantics and the oracle for differential testing against the planner.
-//
+// 
 // All runtime values are big-endian byte strings; arithmetic is done on
 // ulongs. This is the byte-oriented v0: header fields are bit<W> with W a
 // multiple of 8, and numbers normalize to 8 bytes at eval time.
@@ -137,14 +137,14 @@ struct LocalVar {
 }
 
 struct Ref {
-    HdrInst* hdr;          // whole header instance (extract/emit/setValid/isValid)
-    List{HdrInst}* stack;  // whole stack (emit hdr.stack)
-    StoreMember* member;   // owning stack member (for .next advancement)
-    List{char}* buf;       // value lvalue storage (header data, flat field, or local)
+    HdrInst* hdr; // whole header instance (extract/emit/setValid/isValid)
+    List{HdrInst}* stack; // whole stack (emit hdr.stack)
+    StoreMember* member; // owning stack member (for .next advancement)
+    List{char}* buf; // value lvalue storage (header data, flat field, or local)
     sz field_off;
-    sz field_width;       // 0 with is_field = varbit "rest of content"
+    sz field_width; // 0 with is_field = varbit "rest of content"
     bool is_field;
-    bool via_next;         // resolved through .next (extract advances stack_next)
+    bool via_next; // resolved through .next (extract advances stack_next)
 }
 
 struct Interp {
@@ -161,7 +161,7 @@ struct Interp {
     String packet_in_name;
     String packet_out_name;
     String err;
-    bool stopped;   // reject/exit: unwind without faulting
+    bool stopped; // reject/exit: unwind without faulting
     bool rejected;
 }
 
@@ -206,7 +206,7 @@ fn StructStore*? Interp.get_root(&self, String type_name) {
             m.is_stack = f.type.stack_size > 0;
             if (m.is_stack) {
                 for (sz i = 0; i < (sz)f.type.stack_size; i++) {
-                    m.stack.push({});
+                    m.stack.push({ });
                     m.stack[i].init(self.alloc, h);
                 }
             } else {
@@ -260,7 +260,7 @@ fn StoreMember* find_member(StructStore* store, String name) {
     return null;
 }
 // ---- Path resolution -----------------------------------------------------
-//
+// 
 // A Ref describes what `hdr.a.b[i]` designates: a whole header instance, a
 // field slice within it, a whole stack, or a flat metadata field.
 
@@ -330,7 +330,9 @@ fn Ref? Interp.resolve_path(&self, Expr* expr) {
                 unreachable("fail always faults");
             }
             if (base_ref.stack) {
-                self.fail(string::tformat("member '%s' of a stack: only .next/.last select elements", expr.token.text))!;
+                self.fail(
+                    string::tformat("member '%s' of a stack: only .next/.last select elements", expr.token.text)
+                )!;
                 unreachable("fail always faults");
             }
             self.fail(string::tformat("cannot resolve '.%s'", expr.token.text))!;
@@ -413,7 +415,7 @@ fn Value? Interp.eval(&self, Expr* expr) {
                 // varbit field: rest of content
                 return value_from_slice(self.alloc, b[r.field_off..]);
             }
-            return value_from_slice(self.alloc, b[r.field_off : r.field_width]);
+            return value_from_slice(self.alloc, b[r.field_off:r.field_width]);
         case ExprKind.CALL:
             return self.eval_call(expr)!;
         case ExprKind.CAST:
@@ -594,7 +596,7 @@ fn Value? Interp.eval_call(&self, Expr* call) {
                 self.stopped = true;
                 return make_value(self.alloc);
             }
-            return value_from_slice(self.alloc, self.packet[self.cursor : n]);
+            return value_from_slice(self.alloc, self.packet[self.cursor:n]);
         case "setValid":
             Ref r = self.resolve_path(obj)!;
             if (!r.hdr) {
@@ -639,7 +641,7 @@ fn void? Interp.extract_bytes(&self, HdrInst* hdr, sz n) {
         return;
     }
     hdr.data.clear();
-    foreach (b : self.packet[self.cursor : n]) hdr.data.push(b);
+    foreach (b : self.packet[self.cursor:n]) hdr.data.push(b);
     hdr.valid = true;
     self.cursor += n;
 }
@@ -655,12 +657,12 @@ fn void? Interp.extract_end_bytes(&self, HdrInst* hdr, sz n) {
     }
     if (!hdr.valid && hdr.data.len() == 0) {
         hdr.data.clear();
-        foreach (b : self.packet[self.cursor : n]) hdr.data.push(b);
+        foreach (b : self.packet[self.cursor:n]) hdr.data.push(b);
         hdr.valid = true;
         self.cursor += n;
         return;
     }
-    foreach (b : self.packet[self.cursor : n]) hdr.data.push(b);
+    foreach (b : self.packet[self.cursor:n]) hdr.data.push(b);
     hdr.valid = true;
     self.cursor += n;
 }
@@ -824,7 +826,7 @@ fn Value? Interp.eval_select_keys(&self, Transition* trans) {
 }
 
 // ---- Deparser driver -----------------------------------------------------
-//
+// 
 // Straight-line emit sequence with guards (docs/v0-subset.md §2.3): output
 // selection = valid ∧ guard per emit, order fixed by declaration sequence.
 
@@ -849,8 +851,7 @@ fn void? Interp.exec_dep_stmt(&self, Stmt* stmt, bool guarded, bool guard_value)
             foreach (s : stmt.kids) self.exec_dep_stmt(s, guarded, guard_value)!;
         case StmtKind.EXPR:
             Expr* e = stmt.rhs;
-            if (e.kind != ExprKind.CALL || e.kids[0].kind != ExprKind.MEMBER
-                || e.kids[0].token.text != "emit") {
+            if (e.kind != ExprKind.CALL || e.kids[0].kind != ExprKind.MEMBER || e.kids[0].token.text != "emit") {
                 (void)self.eval(e)!;
                 return;
             }
@@ -901,8 +902,14 @@ fn void? Interp.run_pipeline(&self, Decl* parser, List{Decl*}* controls, Decl* d
     self.run_deparser(deparser)!;
 }
 
-fn RunOutcome run_reference(Allocator alloc, TypeIndex* idx, Program* program,
-    char[] packet, String src_name, String* err_out) {
+fn RunOutcome run_reference(
+    Allocator alloc,
+    TypeIndex* idx,
+    Program* program,
+    char[] packet,
+    String src_name,
+    String* err_out
+) {
     Interp interp;
     interp.alloc = alloc;
     interp.idx = idx;

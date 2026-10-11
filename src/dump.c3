@@ -303,6 +303,5 @@ fn void dump_program(Program* program) {
         dump_decl(d, 0);
         io::printn("");
     }
-    io::printfn("// %d top-level declaration%s", program.decls.len(),
-        program.decls.len() == 1 ? "" : "s");
+    io::printfn("// %d top-level declaration%s", program.decls.len(), program.decls.len() == 1 ? "" : "s");
 }
