@@ -18,6 +18,29 @@ The proposed static order analysis, runtime packet layout, and action-boundary
 reconstruction are assessed in [the incremental header rebuild evaluation](docs/incremental-header-rebuild-evaluation.md),
 including a comparison with SWX and an extension path for header reordering.
 
+## V0 target
+
+The v0 milestone is a self-contained C3 frontend for a deliberately *designed* P4_16
+subset — programs outside the subset are rejected with explicit diagnostics, never
+silently miscompiled. The full definition and rationale are in
+[docs/v0-subset.md](docs/v0-subset.md); in short:
+
+- **Types:** byte-aligned fixed-width headers (`bit<W>`), bounded header stacks, and
+  varbit headers.
+- **Parser:** states and transitions compile to label/goto; loop edges are allowed and
+  every extract keeps a bounds check (short packets take the reject path).
+- **Deparser:** a straight-line sequence of guarded emits. Output selection is
+  `valid ∧ guard` with declaration order fixed; the packet is physically rebuilt only
+  here (single-commit model): fixed payload, move only the affected prefix, with a
+  gather-to-scratch fallback.
+- **Target:** DPDK direct-mbuf fast path with a defined entry predicate and explicit
+  fallback paths.
+- **Extension:** `extract_end` preserves byte regions across loop parse paths.
+
+Delivery order: (1) reference interpreter + differential-testing oracle — implemented,
+see `p4c3 runref` below; (2) minimal semantic analysis; (3) layout planner, diffed
+byte-for-byte against the oracle; (4) measurement against handwritten C.
+
 ## What it parses
 
 - Header types and structs (`header`, `struct`, `header_union`)
@@ -103,24 +126,30 @@ packets or establish behavioral equivalence with OVS. No C backend exists yet.
 
 ## Code style
 
-C3 here uses **K&R braces**: the opening `{` stays on the same line as `fn`, `if`, `else`, `while`, `for`, `foreach`, `switch`, `struct`, and `enum`. Do not put the brace on its own line.
+C3 here uses **K&R braces**: the opening `{` stays on the same line as `fn`, `if`,
+`else`, `while`, `for`, `foreach`, `switch`, `struct`, and `enum`. Do not put the brace
+on its own line.
+
+Indent with **4 spaces — tabs are never used**, not even inside string literals. Names
+follow C3 rules: types `PascalCase`, functions and locals `snake_case`. The full rules,
+including formatter guidance, live in [AGENTS.md](AGENTS.md): clang-format does not
+support C3, and `c3fmt` enforces the C3-default brace style we deliberately avoid, so
+formatting is maintained by convention rather than by an automatic formatter.
 
 ```c3
 fn int example(int x) {
-	if (x > 0) {
-		return x;
-	} else {
-		return 0;
-	}
+    if (x > 0) {
+        return x;
+    } else {
+        return 0;
+    }
 }
 
 struct Point {
-	int x;
-	int y;
+    int x;
+    int y;
 }
 ```
-
-Indent with tabs. Names follow C3 rules: types `PascalCase`, functions and locals `snake_case`.
 
 ## Layout
 
